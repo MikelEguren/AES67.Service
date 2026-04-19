@@ -3,5 +3,8 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path="AES67-Service.md" />
+  </Folder>
   <Project Path="AES67.Service.vcxproj" />
 </Solution>
