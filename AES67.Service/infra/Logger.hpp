@@ -6,5 +6,6 @@ namespace aes67::infra
     {
     public:
         static void Info(const char* message);
+        static void Error(const char* message);
     };
 }
