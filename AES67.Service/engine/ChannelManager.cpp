@@ -49,4 +49,18 @@ namespace aes67::engine
 
         return false;
     }
+
+    bool ChannelManager::TryGetChannel(int channelNumber, aes67::domain::ChannelInfo& channel) const
+    {
+        for (const auto& currentChannel : _channels)
+        {
+            if (currentChannel.ChannelNumber == channelNumber)
+            {
+                channel = currentChannel;
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

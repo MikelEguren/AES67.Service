@@ -69,20 +69,29 @@ namespace aes67::app
                     "Session " + session.SessionId +
                     " is ready on channel " + std::to_string(session.ChannelNumber);
                 aes67::infra::Logger::Info(readyMessage.c_str());
+
+                aes67::domain::ChannelInfo currentChannel;
+                if (channelManager.TryGetChannel(session.ChannelNumber, currentChannel))
+                {
+                    if (currentChannel.State == aes67::domain::ChannelState::Reserved)
+                    {
+                        std::string stillReservedMessage =
+                            "Channel " + std::to_string(currentChannel.ChannelNumber) + " remains reserved for ready session.";
+                        aes67::infra::Logger::Info(stillReservedMessage.c_str());
+                    }
+                    else
+                    {
+                        aes67::infra::Logger::Error("Ready session channel is not reserved as expected.");
+                    }
+                }
+                else
+                {
+                    aes67::infra::Logger::Error("Failed to retrieve reserved channel.");
+                }
             }
             else
             {
                 aes67::infra::Logger::Error("Failed to mark session as ready.");
-            }
-
-            if (channelManager.ReleaseChannel(reservedChannel.ChannelNumber))
-            {
-                std::string releasedMessage = "Released channel: " + std::to_string(reservedChannel.ChannelNumber);
-                aes67::infra::Logger::Info(releasedMessage.c_str());
-            }
-            else
-            {
-                aes67::infra::Logger::Error("Failed to release reserved channel.");
             }
         }
         else
