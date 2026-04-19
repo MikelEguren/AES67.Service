@@ -74,5 +74,8 @@
     <ClInclude Include="domain\PreparePlaybackResult.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="domain\StartPlaybackResult.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

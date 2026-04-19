@@ -55,6 +55,38 @@ namespace aes67::app
         return result;
     }
 
+    aes67::domain::StartPlaybackResult Application::StartPlayback(const std::string& sessionId)
+    {
+        aes67::domain::StartPlaybackResult result;
+
+        aes67::domain::PlaybackSession session;
+        if (!_playbackSessionManager.TryGetSession(sessionId, session))
+        {
+            result.Success = false;
+            result.ErrorMessage = "Session not found.";
+            return result;
+        }
+
+        if (!_playbackSessionManager.MarkSessionPlaying(sessionId))
+        {
+            result.Success = false;
+            result.ErrorMessage = "Session is not in ready state.";
+            return result;
+        }
+
+        if (!_channelManager.MarkChannelPlaying(session.ChannelNumber))
+        {
+            result.Success = false;
+            result.ErrorMessage = "Channel is not reserved or cannot transition to playing.";
+            return result;
+        }
+
+        result.Success = true;
+        result.SessionId = session.SessionId;
+        result.ChannelNumber = session.ChannelNumber;
+        return result;
+    }
+
     int Application::Run()
     {
         aes67::infra::Logger::Info("AES67 Service starting...");
@@ -85,23 +117,38 @@ namespace aes67::app
                 " on channel " + std::to_string(prepareResult.ChannelNumber);
             aes67::infra::Logger::Info(preparedMessage.c_str());
 
-            aes67::domain::ChannelInfo currentChannel;
-            if (_channelManager.TryGetChannel(prepareResult.ChannelNumber, currentChannel))
+            aes67::domain::StartPlaybackResult startResult = StartPlayback(prepareResult.SessionId);
+
+            if (startResult.Success)
             {
-                if (currentChannel.State == aes67::domain::ChannelState::Reserved)
+                std::string startedMessage =
+                    "Started playback session " + startResult.SessionId +
+                    " on channel " + std::to_string(startResult.ChannelNumber);
+                aes67::infra::Logger::Info(startedMessage.c_str());
+
+                aes67::domain::ChannelInfo currentChannel;
+                if (_channelManager.TryGetChannel(startResult.ChannelNumber, currentChannel))
                 {
-                    std::string stillReservedMessage =
-                        "Channel " + std::to_string(currentChannel.ChannelNumber) + " remains reserved for ready session.";
-                    aes67::infra::Logger::Info(stillReservedMessage.c_str());
+                    if (currentChannel.State == aes67::domain::ChannelState::Playing)
+                    {
+                        std::string playingChannelMessage =
+                            "Channel " + std::to_string(currentChannel.ChannelNumber) + " is now in playing state.";
+                        aes67::infra::Logger::Info(playingChannelMessage.c_str());
+                    }
+                    else
+                    {
+                        aes67::infra::Logger::Error("Started session channel is not in playing state as expected.");
+                    }
                 }
                 else
                 {
-                    aes67::infra::Logger::Error("Prepared session channel is not reserved as expected.");
+                    aes67::infra::Logger::Error("Failed to retrieve playing channel.");
                 }
             }
             else
             {
-                aes67::infra::Logger::Error("Failed to retrieve reserved channel.");
+                std::string startErrorMessage = "Start playback failed: " + startResult.ErrorMessage;
+                aes67::infra::Logger::Error(startErrorMessage.c_str());
             }
         }
         else

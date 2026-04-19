@@ -36,6 +36,25 @@ namespace aes67::engine
         return false;
     }
 
+    bool ChannelManager::MarkChannelPlaying(int channelNumber)
+    {
+        for (auto& channel : _channels)
+        {
+            if (channel.ChannelNumber == channelNumber)
+            {
+                if (channel.State != aes67::domain::ChannelState::Reserved)
+                {
+                    return false;
+                }
+
+                channel.State = aes67::domain::ChannelState::Playing;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     bool ChannelManager::ReleaseChannel(int channelNumber)
     {
         for (auto& channel : _channels)

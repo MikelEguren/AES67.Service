@@ -14,6 +14,7 @@ namespace aes67::engine
         const std::vector<aes67::domain::ChannelInfo>& GetChannels() const;
 
         bool TryReserveNextFreeChannel(aes67::domain::ChannelInfo& reservedChannel);
+        bool MarkChannelPlaying(int channelNumber);
         bool ReleaseChannel(int channelNumber);
         bool TryGetChannel(int channelNumber, aes67::domain::ChannelInfo& channel) const;
 

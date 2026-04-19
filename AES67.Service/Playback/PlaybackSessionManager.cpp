@@ -1,4 +1,4 @@
-#include "PlaybackSessionManager.hpp"
+#include "playback/PlaybackSessionManager.hpp"
 
 namespace aes67::playback
 {
@@ -25,6 +25,39 @@ namespace aes67::playback
             if (session.SessionId == sessionId)
             {
                 session.State = aes67::domain::PlaybackSessionState::Ready;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool PlaybackSessionManager::MarkSessionPlaying(const std::string& sessionId)
+    {
+        for (auto& session : _sessions)
+        {
+            if (session.SessionId == sessionId)
+            {
+                if (session.State != aes67::domain::PlaybackSessionState::Ready)
+                {
+                    return false;
+                }
+
+                session.State = aes67::domain::PlaybackSessionState::Playing;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool PlaybackSessionManager::TryGetSession(const std::string& sessionId, aes67::domain::PlaybackSession& session) const
+    {
+        for (const auto& currentSession : _sessions)
+        {
+            if (currentSession.SessionId == sessionId)
+            {
+                session = currentSession;
                 return true;
             }
         }

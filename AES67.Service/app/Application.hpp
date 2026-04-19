@@ -4,6 +4,7 @@
 
 #include "config/ServiceConfig.hpp"
 #include "domain/PreparePlaybackResult.hpp"
+#include "domain/StartPlaybackResult.hpp"
 #include "engine/ChannelManager.hpp"
 #include "playback/PlaybackSessionManager.hpp"
 
@@ -22,5 +23,6 @@ namespace aes67::app
 
         bool ValidateConfig();
         aes67::domain::PreparePlaybackResult PreparePlayback(const std::string& sourcePath);
+        aes67::domain::StartPlaybackResult StartPlayback(const std::string& sessionId);
     };
 }
