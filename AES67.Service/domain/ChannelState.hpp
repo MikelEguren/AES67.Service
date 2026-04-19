@@ -4,6 +4,9 @@ namespace aes67::domain
 {
     enum class ChannelState
     {
-        Free
+        Free,
+        Reserved,
+        Playing,
+        Error
     };
 }

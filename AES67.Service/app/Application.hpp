@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/ServiceConfig.hpp"
+#include "engine/ChannelManager.hpp"
 
 namespace aes67::app
 {

@@ -38,6 +38,14 @@ namespace aes67::app
         std::string socketMessage = "IPC socket path: " + _config.IpcSocketPath;
         aes67::infra::Logger::Info(socketMessage.c_str());
 
+        aes67::engine::ChannelManager channelManager(_config.ChannelCount);
+
+        std::string createdChannelsMessage = "Channel manager initialized with " +
+            std::to_string(channelManager.GetChannels().size()) +
+            " channels.";
+
+        aes67::infra::Logger::Info(createdChannelsMessage.c_str());
+
         aes67::infra::Logger::Info("Service startup completed.");
 
         return 0;
