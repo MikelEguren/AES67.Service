@@ -3,11 +3,13 @@
 #include <string>
 
 #include "infra/Logger.hpp"
-#include "playback/PlaybackSessionManager.hpp"
 
 namespace aes67::app
 {
     Application::Application()
+        : _config(),
+        _channelManager(_config.ChannelCount),
+        _playbackSessionManager()
     {}
 
     bool Application::ValidateConfig()
@@ -39,23 +41,19 @@ namespace aes67::app
         std::string socketMessage = "IPC socket path: " + _config.IpcSocketPath;
         aes67::infra::Logger::Info(socketMessage.c_str());
 
-        aes67::engine::ChannelManager channelManager(_config.ChannelCount);
-
         std::string createdChannelsMessage = "Channel manager initialized with " +
-            std::to_string(channelManager.GetChannels().size()) +
+            std::to_string(_channelManager.GetChannels().size()) +
             " channels.";
         aes67::infra::Logger::Info(createdChannelsMessage.c_str());
 
-        aes67::playback::PlaybackSessionManager playbackSessionManager;
-
         aes67::domain::ChannelInfo reservedChannel;
-        if (channelManager.TryReserveNextFreeChannel(reservedChannel))
+        if (_channelManager.TryReserveNextFreeChannel(reservedChannel))
         {
             std::string reservedMessage = "Reserved channel: " + std::to_string(reservedChannel.ChannelNumber);
             aes67::infra::Logger::Info(reservedMessage.c_str());
 
             aes67::domain::PlaybackSession session =
-                playbackSessionManager.CreateSession("demo-audio.wav", reservedChannel.ChannelNumber);
+                _playbackSessionManager.CreateSession("demo-audio.wav", reservedChannel.ChannelNumber);
 
             std::string createdSessionMessage =
                 "Created session " + session.SessionId +
@@ -63,7 +61,7 @@ namespace aes67::app
                 " with source " + session.SourcePath;
             aes67::infra::Logger::Info(createdSessionMessage.c_str());
 
-            if (playbackSessionManager.MarkSessionReady(session.SessionId))
+            if (_playbackSessionManager.MarkSessionReady(session.SessionId))
             {
                 std::string readyMessage =
                     "Session " + session.SessionId +
@@ -71,7 +69,7 @@ namespace aes67::app
                 aes67::infra::Logger::Info(readyMessage.c_str());
 
                 aes67::domain::ChannelInfo currentChannel;
-                if (channelManager.TryGetChannel(session.ChannelNumber, currentChannel))
+                if (_channelManager.TryGetChannel(session.ChannelNumber, currentChannel))
                 {
                     if (currentChannel.State == aes67::domain::ChannelState::Reserved)
                     {
