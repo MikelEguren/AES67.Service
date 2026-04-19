@@ -3,6 +3,7 @@
 #include <string>
 
 #include "infra/Logger.hpp"
+#include "playback/PlaybackSessionManager.hpp"
 
 namespace aes67::app
 {
@@ -50,6 +51,17 @@ namespace aes67::app
         {
             std::string reservedMessage = "Reserved channel: " + std::to_string(reservedChannel.ChannelNumber);
             aes67::infra::Logger::Info(reservedMessage.c_str());
+
+            aes67::playback::PlaybackSessionManager playbackSessionManager;
+            aes67::domain::PlaybackSession session =
+                playbackSessionManager.CreateSession("demo-audio.wav", reservedChannel.ChannelNumber);
+
+            std::string sessionMessage =
+                "Created session " + session.SessionId +
+                " for channel " + std::to_string(session.ChannelNumber) +
+                " with source " + session.SourcePath;
+
+            aes67::infra::Logger::Info(sessionMessage.c_str());
 
             if (channelManager.ReleaseChannel(reservedChannel.ChannelNumber))
             {

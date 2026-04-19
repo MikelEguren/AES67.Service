@@ -33,6 +33,9 @@
     <ClCompile Include="infra\Logger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Playback\PlaybackSessionManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app\Application.hpp">
@@ -63,6 +66,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="infra\Logger.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Playback\PlaybackSessionManager.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

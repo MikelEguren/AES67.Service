@@ -146,6 +146,7 @@
     <ClCompile Include="gst\GstEngine.cpp" />
     <ClCompile Include="infra\Logger.cpp" />
     <ClCompile Include="ipc\IpcServer.cpp" />
+    <ClCompile Include="Playback\PlaybackSessionManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app\Application.hpp" />
@@ -158,6 +159,7 @@
     <ClInclude Include="gst\GstEngine.hpp" />
     <ClInclude Include="infra\Logger.hpp" />
     <ClInclude Include="ipc\IpcServer.hpp" />
+    <ClInclude Include="Playback\PlaybackSessionManager.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
