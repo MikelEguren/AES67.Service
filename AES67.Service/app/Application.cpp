@@ -9,9 +9,28 @@ namespace aes67::app
     Application::Application()
     {}
 
+    bool Application::ValidateConfig()
+    {
+        if (_config.ChannelCount != 4 &&
+            _config.ChannelCount != 8 &&
+            _config.ChannelCount != 16)
+        {
+            aes67::infra::Logger::Error("Invalid channel count. Only 4, 8 or 16 are allowed.");
+            return false;
+        }
+
+        return true;
+    }
+
     int Application::Run()
     {
         aes67::infra::Logger::Info("AES67 Service starting...");
+
+        if (!ValidateConfig())
+        {
+            aes67::infra::Logger::Error("Service startup failed due to invalid configuration.");
+            return -1;
+        }
 
         std::string channelMessage = "Configured channels: " + std::to_string(_config.ChannelCount);
         aes67::infra::Logger::Info(channelMessage.c_str());

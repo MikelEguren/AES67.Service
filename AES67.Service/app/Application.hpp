@@ -12,5 +12,7 @@ namespace aes67::app
 
     private:
         aes67::config::ServiceConfig _config;
+
+        bool ValidateConfig();
     };
 }
