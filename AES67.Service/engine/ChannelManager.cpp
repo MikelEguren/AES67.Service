@@ -20,4 +20,33 @@ namespace aes67::engine
     {
         return _channels;
     }
+
+    bool ChannelManager::TryReserveNextFreeChannel(aes67::domain::ChannelInfo& reservedChannel)
+    {
+        for (auto& channel : _channels)
+        {
+            if (channel.State == aes67::domain::ChannelState::Free)
+            {
+                channel.State = aes67::domain::ChannelState::Reserved;
+                reservedChannel = channel;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool ChannelManager::ReleaseChannel(int channelNumber)
+    {
+        for (auto& channel : _channels)
+        {
+            if (channel.ChannelNumber == channelNumber)
+            {
+                channel.State = aes67::domain::ChannelState::Free;
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

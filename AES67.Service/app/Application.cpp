@@ -43,8 +43,28 @@ namespace aes67::app
         std::string createdChannelsMessage = "Channel manager initialized with " +
             std::to_string(channelManager.GetChannels().size()) +
             " channels.";
-
         aes67::infra::Logger::Info(createdChannelsMessage.c_str());
+
+        aes67::domain::ChannelInfo reservedChannel;
+        if (channelManager.TryReserveNextFreeChannel(reservedChannel))
+        {
+            std::string reservedMessage = "Reserved channel: " + std::to_string(reservedChannel.ChannelNumber);
+            aes67::infra::Logger::Info(reservedMessage.c_str());
+
+            if (channelManager.ReleaseChannel(reservedChannel.ChannelNumber))
+            {
+                std::string releasedMessage = "Released channel: " + std::to_string(reservedChannel.ChannelNumber);
+                aes67::infra::Logger::Info(releasedMessage.c_str());
+            }
+            else
+            {
+                aes67::infra::Logger::Error("Failed to release reserved channel.");
+            }
+        }
+        else
+        {
+            aes67::infra::Logger::Error("No free channel available.");
+        }
 
         aes67::infra::Logger::Info("Service startup completed.");
 
