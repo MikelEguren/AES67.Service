@@ -140,6 +140,23 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AES67.Service.cpp" />
+    <ClCompile Include="app\Application.cpp" />
+    <ClCompile Include="engine\ChannelManager.cpp" />
+    <ClCompile Include="gst\GstEngine.cpp" />
+    <ClCompile Include="infra\Logger.cpp" />
+    <ClCompile Include="ipc\IpcServer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="app\Application.hpp" />
+    <ClInclude Include="config\ServiceConfig.hpp" />
+    <ClInclude Include="domain\ChannelInfo.hpp" />
+    <ClInclude Include="domain\ChannelState.hpp" />
+    <ClInclude Include="domain\PlaybackSession.hpp" />
+    <ClInclude Include="domain\PlaybackSessionState.hpp" />
+    <ClInclude Include="engine\ChannelManager.hpp" />
+    <ClInclude Include="gst\GstEngine.hpp" />
+    <ClInclude Include="infra\Logger.hpp" />
+    <ClInclude Include="ipc\IpcServer.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
