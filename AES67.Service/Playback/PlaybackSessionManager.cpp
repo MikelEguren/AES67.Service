@@ -18,6 +18,20 @@ namespace aes67::playback
         return session;
     }
 
+    bool PlaybackSessionManager::MarkSessionReady(const std::string& sessionId)
+    {
+        for (auto& session : _sessions)
+        {
+            if (session.SessionId == sessionId)
+            {
+                session.State = aes67::domain::PlaybackSessionState::Ready;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     const std::vector<aes67::domain::PlaybackSession>& PlaybackSessionManager::GetSessions() const
     {
         return _sessions;

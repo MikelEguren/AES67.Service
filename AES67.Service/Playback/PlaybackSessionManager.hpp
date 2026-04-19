@@ -13,6 +13,7 @@ namespace aes67::playback
         PlaybackSessionManager();
 
         aes67::domain::PlaybackSession CreateSession(const std::string& sourcePath, int channelNumber);
+        bool MarkSessionReady(const std::string& sessionId);
         const std::vector<aes67::domain::PlaybackSession>& GetSessions() const;
 
     private:

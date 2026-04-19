@@ -46,22 +46,34 @@ namespace aes67::app
             " channels.";
         aes67::infra::Logger::Info(createdChannelsMessage.c_str());
 
+        aes67::playback::PlaybackSessionManager playbackSessionManager;
+
         aes67::domain::ChannelInfo reservedChannel;
         if (channelManager.TryReserveNextFreeChannel(reservedChannel))
         {
             std::string reservedMessage = "Reserved channel: " + std::to_string(reservedChannel.ChannelNumber);
             aes67::infra::Logger::Info(reservedMessage.c_str());
 
-            aes67::playback::PlaybackSessionManager playbackSessionManager;
             aes67::domain::PlaybackSession session =
                 playbackSessionManager.CreateSession("demo-audio.wav", reservedChannel.ChannelNumber);
 
-            std::string sessionMessage =
+            std::string createdSessionMessage =
                 "Created session " + session.SessionId +
                 " for channel " + std::to_string(session.ChannelNumber) +
                 " with source " + session.SourcePath;
+            aes67::infra::Logger::Info(createdSessionMessage.c_str());
 
-            aes67::infra::Logger::Info(sessionMessage.c_str());
+            if (playbackSessionManager.MarkSessionReady(session.SessionId))
+            {
+                std::string readyMessage =
+                    "Session " + session.SessionId +
+                    " is ready on channel " + std::to_string(session.ChannelNumber);
+                aes67::infra::Logger::Info(readyMessage.c_str());
+            }
+            else
+            {
+                aes67::infra::Logger::Error("Failed to mark session as ready.");
+            }
 
             if (channelManager.ReleaseChannel(reservedChannel.ChannelNumber))
             {
