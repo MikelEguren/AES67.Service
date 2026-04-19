@@ -77,5 +77,17 @@
     <ClInclude Include="domain\StartPlaybackResult.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="domain\FinishPlaybackResult.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\StartPlaybackCommand.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\FinishPlaybackCommand.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="commands\PreparePlaybackCommand.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

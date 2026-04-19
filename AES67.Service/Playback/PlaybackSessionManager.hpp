@@ -15,6 +15,7 @@ namespace aes67::playback
         aes67::domain::PlaybackSession CreateSession(const std::string& sourcePath, int channelNumber);
         bool MarkSessionReady(const std::string& sessionId);
         bool MarkSessionPlaying(const std::string& sessionId);
+        bool MarkSessionFinished(const std::string& sessionId);
         bool TryGetSession(const std::string& sessionId, aes67::domain::PlaybackSession& session) const;
         const std::vector<aes67::domain::PlaybackSession>& GetSessions() const;
 

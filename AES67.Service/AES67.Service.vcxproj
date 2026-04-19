@@ -150,9 +150,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app\Application.hpp" />
+    <ClInclude Include="commands\FinishPlaybackCommand.hpp" />
+    <ClInclude Include="commands\PreparePlaybackCommand.hpp" />
+    <ClInclude Include="commands\StartPlaybackCommand.hpp" />
     <ClInclude Include="config\ServiceConfig.hpp" />
     <ClInclude Include="domain\ChannelInfo.hpp" />
     <ClInclude Include="domain\ChannelState.hpp" />
+    <ClInclude Include="domain\FinishPlaybackResult.hpp" />
     <ClInclude Include="domain\PlaybackSession.hpp" />
     <ClInclude Include="domain\PlaybackSessionState.hpp" />
     <ClInclude Include="domain\PreparePlaybackResult.hpp" />

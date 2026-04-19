@@ -25,6 +25,21 @@ namespace aes67::app
         return true;
     }
 
+    aes67::domain::PreparePlaybackResult Application::Execute(const aes67::commands::PreparePlaybackCommand& command)
+    {
+        return PreparePlayback(command.SourcePath);
+    }
+
+    aes67::domain::StartPlaybackResult Application::Execute(const aes67::commands::StartPlaybackCommand& command)
+    {
+        return StartPlayback(command.SessionId);
+    }
+
+    aes67::domain::FinishPlaybackResult Application::Execute(const aes67::commands::FinishPlaybackCommand& command)
+    {
+        return FinishPlayback(command.SessionId);
+    }
+
     aes67::domain::PreparePlaybackResult Application::PreparePlayback(const std::string& sourcePath)
     {
         aes67::domain::PreparePlaybackResult result;
@@ -87,6 +102,132 @@ namespace aes67::app
         return result;
     }
 
+    aes67::domain::FinishPlaybackResult Application::FinishPlayback(const std::string& sessionId)
+    {
+        aes67::domain::FinishPlaybackResult result;
+
+        aes67::domain::PlaybackSession session;
+        if (!_playbackSessionManager.TryGetSession(sessionId, session))
+        {
+            result.Success = false;
+            result.ErrorMessage = "Session not found.";
+            return result;
+        }
+
+        if (!_playbackSessionManager.MarkSessionFinished(sessionId))
+        {
+            result.Success = false;
+            result.ErrorMessage = "Session is not in playing state.";
+            return result;
+        }
+
+        if (!_channelManager.ReleaseChannel(session.ChannelNumber))
+        {
+            result.Success = false;
+            result.ErrorMessage = "Failed to release channel.";
+            return result;
+        }
+
+        result.Success = true;
+        result.SessionId = session.SessionId;
+        result.ChannelNumber = session.ChannelNumber;
+        return result;
+    }
+
+    void Application::RunSelfTest()
+    {
+        aes67::infra::Logger::Info("Running in-memory playback self-test...");
+
+        aes67::commands::PreparePlaybackCommand prepareCommand;
+        prepareCommand.SourcePath = "demo-audio.wav";
+
+        aes67::domain::PreparePlaybackResult prepareResult = Execute(prepareCommand);
+
+        if (!prepareResult.Success)
+        {
+            std::string errorMessage = "Prepare playback failed: " + prepareResult.ErrorMessage;
+            aes67::infra::Logger::Error(errorMessage.c_str());
+            return;
+        }
+
+        std::string preparedMessage =
+            "Prepared playback session " + prepareResult.SessionId +
+            " on channel " + std::to_string(prepareResult.ChannelNumber);
+        aes67::infra::Logger::Info(preparedMessage.c_str());
+
+        aes67::commands::StartPlaybackCommand startCommand;
+        startCommand.SessionId = prepareResult.SessionId;
+
+        aes67::domain::StartPlaybackResult startResult = Execute(startCommand);
+
+        if (!startResult.Success)
+        {
+            std::string startErrorMessage = "Start playback failed: " + startResult.ErrorMessage;
+            aes67::infra::Logger::Error(startErrorMessage.c_str());
+            return;
+        }
+
+        std::string startedMessage =
+            "Started playback session " + startResult.SessionId +
+            " on channel " + std::to_string(startResult.ChannelNumber);
+        aes67::infra::Logger::Info(startedMessage.c_str());
+
+        aes67::domain::ChannelInfo currentChannel;
+        if (_channelManager.TryGetChannel(startResult.ChannelNumber, currentChannel))
+        {
+            if (currentChannel.State == aes67::domain::ChannelState::Playing)
+            {
+                std::string playingChannelMessage =
+                    "Channel " + std::to_string(currentChannel.ChannelNumber) + " is now in playing state.";
+                aes67::infra::Logger::Info(playingChannelMessage.c_str());
+            }
+            else
+            {
+                aes67::infra::Logger::Error("Started session channel is not in playing state as expected.");
+            }
+        }
+        else
+        {
+            aes67::infra::Logger::Error("Failed to retrieve playing channel.");
+        }
+
+        aes67::commands::FinishPlaybackCommand finishCommand;
+        finishCommand.SessionId = startResult.SessionId;
+
+        aes67::domain::FinishPlaybackResult finishResult = Execute(finishCommand);
+
+        if (!finishResult.Success)
+        {
+            std::string finishErrorMessage = "Finish playback failed: " + finishResult.ErrorMessage;
+            aes67::infra::Logger::Error(finishErrorMessage.c_str());
+            return;
+        }
+
+        std::string finishedMessage =
+            "Finished playback session " + finishResult.SessionId +
+            " on channel " + std::to_string(finishResult.ChannelNumber);
+        aes67::infra::Logger::Info(finishedMessage.c_str());
+
+        aes67::domain::ChannelInfo releasedChannel;
+        if (_channelManager.TryGetChannel(finishResult.ChannelNumber, releasedChannel))
+        {
+            if (releasedChannel.State == aes67::domain::ChannelState::Free)
+            {
+                std::string freeChannelMessage =
+                    "Channel " + std::to_string(releasedChannel.ChannelNumber) + " is now free.";
+                aes67::infra::Logger::Info(freeChannelMessage.c_str());
+            }
+            else
+            {
+                aes67::infra::Logger::Error("Finished session channel is not free as expected.");
+            }
+        }
+        else
+        {
+            aes67::infra::Logger::Error("Failed to retrieve released channel.");
+        }
+    }
+
     int Application::Run()
     {
         aes67::infra::Logger::Info("AES67 Service starting...");
@@ -108,54 +249,7 @@ namespace aes67::app
             " channels.";
         aes67::infra::Logger::Info(createdChannelsMessage.c_str());
 
-        aes67::domain::PreparePlaybackResult prepareResult = PreparePlayback("demo-audio.wav");
-
-        if (prepareResult.Success)
-        {
-            std::string preparedMessage =
-                "Prepared playback session " + prepareResult.SessionId +
-                " on channel " + std::to_string(prepareResult.ChannelNumber);
-            aes67::infra::Logger::Info(preparedMessage.c_str());
-
-            aes67::domain::StartPlaybackResult startResult = StartPlayback(prepareResult.SessionId);
-
-            if (startResult.Success)
-            {
-                std::string startedMessage =
-                    "Started playback session " + startResult.SessionId +
-                    " on channel " + std::to_string(startResult.ChannelNumber);
-                aes67::infra::Logger::Info(startedMessage.c_str());
-
-                aes67::domain::ChannelInfo currentChannel;
-                if (_channelManager.TryGetChannel(startResult.ChannelNumber, currentChannel))
-                {
-                    if (currentChannel.State == aes67::domain::ChannelState::Playing)
-                    {
-                        std::string playingChannelMessage =
-                            "Channel " + std::to_string(currentChannel.ChannelNumber) + " is now in playing state.";
-                        aes67::infra::Logger::Info(playingChannelMessage.c_str());
-                    }
-                    else
-                    {
-                        aes67::infra::Logger::Error("Started session channel is not in playing state as expected.");
-                    }
-                }
-                else
-                {
-                    aes67::infra::Logger::Error("Failed to retrieve playing channel.");
-                }
-            }
-            else
-            {
-                std::string startErrorMessage = "Start playback failed: " + startResult.ErrorMessage;
-                aes67::infra::Logger::Error(startErrorMessage.c_str());
-            }
-        }
-        else
-        {
-            std::string errorMessage = "Prepare playback failed: " + prepareResult.ErrorMessage;
-            aes67::infra::Logger::Error(errorMessage.c_str());
-        }
+        RunSelfTest();
 
         aes67::infra::Logger::Info("Service startup completed.");
 

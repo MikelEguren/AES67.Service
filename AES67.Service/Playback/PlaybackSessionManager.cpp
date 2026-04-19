@@ -51,6 +51,25 @@ namespace aes67::playback
         return false;
     }
 
+    bool PlaybackSessionManager::MarkSessionFinished(const std::string& sessionId)
+    {
+        for (auto& session : _sessions)
+        {
+            if (session.SessionId == sessionId)
+            {
+                if (session.State != aes67::domain::PlaybackSessionState::Playing)
+                {
+                    return false;
+                }
+
+                session.State = aes67::domain::PlaybackSessionState::Finished;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     bool PlaybackSessionManager::TryGetSession(const std::string& sessionId, aes67::domain::PlaybackSession& session) const
     {
         for (const auto& currentSession : _sessions)
