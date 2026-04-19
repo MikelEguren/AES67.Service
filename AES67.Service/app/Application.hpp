@@ -1,6 +1,9 @@
 #pragma once
 
+#include <string>
+
 #include "config/ServiceConfig.hpp"
+#include "domain/PreparePlaybackResult.hpp"
 #include "engine/ChannelManager.hpp"
 #include "playback/PlaybackSessionManager.hpp"
 
@@ -18,5 +21,6 @@ namespace aes67::app
         aes67::playback::PlaybackSessionManager _playbackSessionManager;
 
         bool ValidateConfig();
+        aes67::domain::PreparePlaybackResult PreparePlayback(const std::string& sourcePath);
     };
 }

@@ -71,5 +71,8 @@
     <ClInclude Include="Playback\PlaybackSessionManager.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="domain\PreparePlaybackResult.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

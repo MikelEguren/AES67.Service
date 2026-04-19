@@ -25,6 +25,36 @@ namespace aes67::app
         return true;
     }
 
+    aes67::domain::PreparePlaybackResult Application::PreparePlayback(const std::string& sourcePath)
+    {
+        aes67::domain::PreparePlaybackResult result;
+
+        aes67::domain::ChannelInfo reservedChannel;
+        if (!_channelManager.TryReserveNextFreeChannel(reservedChannel))
+        {
+            result.Success = false;
+            result.ErrorMessage = "No free channel available.";
+            return result;
+        }
+
+        aes67::domain::PlaybackSession session =
+            _playbackSessionManager.CreateSession(sourcePath, reservedChannel.ChannelNumber);
+
+        if (!_playbackSessionManager.MarkSessionReady(session.SessionId))
+        {
+            _channelManager.ReleaseChannel(reservedChannel.ChannelNumber);
+
+            result.Success = false;
+            result.ErrorMessage = "Failed to mark session as ready.";
+            return result;
+        }
+
+        result.Success = true;
+        result.SessionId = session.SessionId;
+        result.ChannelNumber = session.ChannelNumber;
+        return result;
+    }
+
     int Application::Run()
     {
         aes67::infra::Logger::Info("AES67 Service starting...");
@@ -46,55 +76,38 @@ namespace aes67::app
             " channels.";
         aes67::infra::Logger::Info(createdChannelsMessage.c_str());
 
-        aes67::domain::ChannelInfo reservedChannel;
-        if (_channelManager.TryReserveNextFreeChannel(reservedChannel))
+        aes67::domain::PreparePlaybackResult prepareResult = PreparePlayback("demo-audio.wav");
+
+        if (prepareResult.Success)
         {
-            std::string reservedMessage = "Reserved channel: " + std::to_string(reservedChannel.ChannelNumber);
-            aes67::infra::Logger::Info(reservedMessage.c_str());
+            std::string preparedMessage =
+                "Prepared playback session " + prepareResult.SessionId +
+                " on channel " + std::to_string(prepareResult.ChannelNumber);
+            aes67::infra::Logger::Info(preparedMessage.c_str());
 
-            aes67::domain::PlaybackSession session =
-                _playbackSessionManager.CreateSession("demo-audio.wav", reservedChannel.ChannelNumber);
-
-            std::string createdSessionMessage =
-                "Created session " + session.SessionId +
-                " for channel " + std::to_string(session.ChannelNumber) +
-                " with source " + session.SourcePath;
-            aes67::infra::Logger::Info(createdSessionMessage.c_str());
-
-            if (_playbackSessionManager.MarkSessionReady(session.SessionId))
+            aes67::domain::ChannelInfo currentChannel;
+            if (_channelManager.TryGetChannel(prepareResult.ChannelNumber, currentChannel))
             {
-                std::string readyMessage =
-                    "Session " + session.SessionId +
-                    " is ready on channel " + std::to_string(session.ChannelNumber);
-                aes67::infra::Logger::Info(readyMessage.c_str());
-
-                aes67::domain::ChannelInfo currentChannel;
-                if (_channelManager.TryGetChannel(session.ChannelNumber, currentChannel))
+                if (currentChannel.State == aes67::domain::ChannelState::Reserved)
                 {
-                    if (currentChannel.State == aes67::domain::ChannelState::Reserved)
-                    {
-                        std::string stillReservedMessage =
-                            "Channel " + std::to_string(currentChannel.ChannelNumber) + " remains reserved for ready session.";
-                        aes67::infra::Logger::Info(stillReservedMessage.c_str());
-                    }
-                    else
-                    {
-                        aes67::infra::Logger::Error("Ready session channel is not reserved as expected.");
-                    }
+                    std::string stillReservedMessage =
+                        "Channel " + std::to_string(currentChannel.ChannelNumber) + " remains reserved for ready session.";
+                    aes67::infra::Logger::Info(stillReservedMessage.c_str());
                 }
                 else
                 {
-                    aes67::infra::Logger::Error("Failed to retrieve reserved channel.");
+                    aes67::infra::Logger::Error("Prepared session channel is not reserved as expected.");
                 }
             }
             else
             {
-                aes67::infra::Logger::Error("Failed to mark session as ready.");
+                aes67::infra::Logger::Error("Failed to retrieve reserved channel.");
             }
         }
         else
         {
-            aes67::infra::Logger::Error("No free channel available.");
+            std::string errorMessage = "Prepare playback failed: " + prepareResult.ErrorMessage;
+            aes67::infra::Logger::Error(errorMessage.c_str());
         }
 
         aes67::infra::Logger::Info("Service startup completed.");
