@@ -6,5 +6,5 @@
   <Folder Name="/Solution Items/">
     <File Path="AES67-Service.md" />
   </Folder>
-  <Project Path="AES67.Service.vcxproj" />
+  <Project Path="AES67.Service/AES67.Service.vcxproj" Id="e17fbb06-6226-44cd-a3e3-1d0d5d078f8a" />
 </Solution>
