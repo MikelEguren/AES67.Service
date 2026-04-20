@@ -36,6 +36,21 @@ namespace
 
         return true;
     }
+    const char* ToString(aes67::ipc::IpcCommandType commandType)
+    {
+        switch (commandType)
+        {
+        case aes67::ipc::IpcCommandType::PreparePlayback:
+            return "PreparePlayback";
+        case aes67::ipc::IpcCommandType::StartPlayback:
+            return "StartPlayback";
+        case aes67::ipc::IpcCommandType::FinishPlayback:
+            return "FinishPlayback";
+        case aes67::ipc::IpcCommandType::Unknown:
+        default:
+            return "Unknown";
+        }
+    }
 }
 
 namespace aes67::app
@@ -200,6 +215,10 @@ namespace aes67::app
 
     aes67::ipc::IpcResponse Application::HandleRequest(const aes67::ipc::IpcRequest& request)
     {
+        std::string commandMessage =
+            "Handling IPC request of type: " + std::string(ToString(request.CommandType));
+        aes67::infra::Logger::Info(commandMessage.c_str());
+
         aes67::ipc::IpcResponse response;
 
         switch (request.CommandType)
