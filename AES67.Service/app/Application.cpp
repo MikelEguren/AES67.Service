@@ -5,6 +5,22 @@
 #include "infra/Logger.hpp"
 #include "ipc/IpcMessageSerializer.hpp"
 
+namespace
+{
+    const char* ToString(aes67::config::ExecutionMode mode)
+    {
+        switch (mode)
+        {
+        case aes67::config::ExecutionMode::RunOnce:
+            return "RunOnce";
+        case aes67::config::ExecutionMode::ServiceLoop:
+            return "ServiceLoop";
+        default:
+            return "Unknown";
+        }
+    }
+}
+
 namespace aes67::app
 {
     Application::Application()
@@ -319,6 +335,9 @@ namespace aes67::app
             return -1;
         }
 
+        std::string modeMessage = "Execution mode: " + std::string(ToString(_config.Mode));
+        aes67::infra::Logger::Info(modeMessage.c_str());
+
         std::string channelMessage = "Configured channels: " + std::to_string(_config.ChannelCount);
         aes67::infra::Logger::Info(channelMessage.c_str());
 
@@ -330,7 +349,23 @@ namespace aes67::app
             " channels.";
         aes67::infra::Logger::Info(createdChannelsMessage.c_str());
 
-        int exitCode = RunOnce();
+        int exitCode = 0;
+
+        switch (_config.Mode)
+        {
+        case aes67::config::ExecutionMode::RunOnce:
+            exitCode = RunOnce();
+            break;
+
+        case aes67::config::ExecutionMode::ServiceLoop:
+            exitCode = RunServiceLoop();
+            break;
+
+        default:
+            aes67::infra::Logger::Error("Unknown execution mode.");
+            exitCode = -1;
+            break;
+        }
 
         aes67::infra::Logger::Info("Service startup completed.");
 

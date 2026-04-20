@@ -154,6 +154,7 @@
     <ClInclude Include="commands\FinishPlaybackCommand.hpp" />
     <ClInclude Include="commands\PreparePlaybackCommand.hpp" />
     <ClInclude Include="commands\StartPlaybackCommand.hpp" />
+    <ClInclude Include="config\ExecutionMode.hpp" />
     <ClInclude Include="config\ServiceConfig.hpp" />
     <ClInclude Include="domain\ChannelInfo.hpp" />
     <ClInclude Include="domain\ChannelState.hpp" />

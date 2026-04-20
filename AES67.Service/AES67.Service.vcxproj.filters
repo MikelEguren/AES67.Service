@@ -104,5 +104,8 @@
     <ClInclude Include="ipc\IpcMessageSerializer.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="config\ExecutionMode.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
