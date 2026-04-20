@@ -48,6 +48,7 @@ namespace aes67::app
         int RunServiceLoop();
         void RunSelfTest();
 
+        void LogServiceLoopReceivedMessages(const std::vector<std::string>& messages) const;
         void LogServiceLoopResponses(const std::vector<std::string>& responses) const;
         int GetServiceLoopIterationCount() const;
         bool IsLinuxPlatform() const;

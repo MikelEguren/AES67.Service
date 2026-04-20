@@ -415,6 +415,8 @@ namespace aes67::app
                 "Received " + std::to_string(receiveResult.Messages.size()) + " IPC message(s) in current service loop iteration.";
             aes67::infra::Logger::Info(receivedCountMessage.c_str());
 
+            LogServiceLoopReceivedMessages(receiveResult.Messages);
+
             std::vector<std::string> responses = _ipcServer.ProcessMessages(receiveResult.Messages);
 
             LogServiceLoopResponses(responses);
@@ -424,7 +426,14 @@ namespace aes67::app
         return 0;
     }
 
-   
+    void Application::LogServiceLoopReceivedMessages(const std::vector<std::string>& messages) const
+    {
+        for (const auto& message : messages)
+        {
+            std::string logMessage = "Service loop received message: " + message;
+            aes67::infra::Logger::Info(logMessage.c_str());
+        }
+    }
 
     void Application::LogServiceLoopResponses(const std::vector<std::string>& responses) const
     {
