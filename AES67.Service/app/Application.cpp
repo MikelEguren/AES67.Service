@@ -4,6 +4,7 @@
 
 #include "infra/Logger.hpp"
 #include "ipc/IpcMessageSerializer.hpp"
+#include <cctype>
 
 namespace
 {
@@ -18,6 +19,18 @@ namespace
         default:
             return "Unknown";
         }
+    }
+    bool IsNullOrWhiteSpace(const std::string& value)
+    {
+        for (char ch : value)
+        {
+            if (!std::isspace(static_cast<unsigned char>(ch)))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
 
@@ -37,6 +50,12 @@ namespace aes67::app
             _config.ChannelCount != 16)
         {
             aes67::infra::Logger::Error("Invalid channel count. Only 4, 8 or 16 are allowed.");
+            return false;
+        }
+
+        if (IsNullOrWhiteSpace(_config.IpcSocketPath))
+        {
+            aes67::infra::Logger::Error("IPC socket path cannot be empty.");
             return false;
         }
 
