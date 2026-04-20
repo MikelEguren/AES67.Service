@@ -134,46 +134,100 @@ namespace aes67::app
         return result;
     }
 
+    aes67::ipc::IpcResponse Application::HandleRequest(const aes67::ipc::IpcRequest& request)
+    {
+        aes67::ipc::IpcResponse response;
+
+        switch (request.CommandType)
+        {
+        case aes67::ipc::IpcCommandType::PreparePlayback:
+        {
+            aes67::commands::PreparePlaybackCommand command;
+            command.SourcePath = request.SourcePath;
+
+            aes67::domain::PreparePlaybackResult result = Execute(command);
+            response.Success = result.Success;
+            response.SessionId = result.SessionId;
+            response.ChannelNumber = result.ChannelNumber;
+            response.ErrorMessage = result.ErrorMessage;
+            return response;
+        }
+
+        case aes67::ipc::IpcCommandType::StartPlayback:
+        {
+            aes67::commands::StartPlaybackCommand command;
+            command.SessionId = request.SessionId;
+
+            aes67::domain::StartPlaybackResult result = Execute(command);
+            response.Success = result.Success;
+            response.SessionId = result.SessionId;
+            response.ChannelNumber = result.ChannelNumber;
+            response.ErrorMessage = result.ErrorMessage;
+            return response;
+        }
+
+        case aes67::ipc::IpcCommandType::FinishPlayback:
+        {
+            aes67::commands::FinishPlaybackCommand command;
+            command.SessionId = request.SessionId;
+
+            aes67::domain::FinishPlaybackResult result = Execute(command);
+            response.Success = result.Success;
+            response.SessionId = result.SessionId;
+            response.ChannelNumber = result.ChannelNumber;
+            response.ErrorMessage = result.ErrorMessage;
+            return response;
+        }
+
+        default:
+            response.Success = false;
+            response.ErrorMessage = "Unknown IPC command.";
+            return response;
+        }
+    }
+
     void Application::RunSelfTest()
     {
         aes67::infra::Logger::Info("Running in-memory playback self-test...");
 
-        aes67::commands::PreparePlaybackCommand prepareCommand;
-        prepareCommand.SourcePath = "demo-audio.wav";
+        aes67::ipc::IpcRequest prepareRequest;
+        prepareRequest.CommandType = aes67::ipc::IpcCommandType::PreparePlayback;
+        prepareRequest.SourcePath = "demo-audio.wav";
 
-        aes67::domain::PreparePlaybackResult prepareResult = Execute(prepareCommand);
+        aes67::ipc::IpcResponse prepareResponse = HandleRequest(prepareRequest);
 
-        if (!prepareResult.Success)
+        if (!prepareResponse.Success)
         {
-            std::string errorMessage = "Prepare playback failed: " + prepareResult.ErrorMessage;
+            std::string errorMessage = "Prepare playback failed: " + prepareResponse.ErrorMessage;
             aes67::infra::Logger::Error(errorMessage.c_str());
             return;
         }
 
         std::string preparedMessage =
-            "Prepared playback session " + prepareResult.SessionId +
-            " on channel " + std::to_string(prepareResult.ChannelNumber);
+            "Prepared playback session " + prepareResponse.SessionId +
+            " on channel " + std::to_string(prepareResponse.ChannelNumber);
         aes67::infra::Logger::Info(preparedMessage.c_str());
 
-        aes67::commands::StartPlaybackCommand startCommand;
-        startCommand.SessionId = prepareResult.SessionId;
+        aes67::ipc::IpcRequest startRequest;
+        startRequest.CommandType = aes67::ipc::IpcCommandType::StartPlayback;
+        startRequest.SessionId = prepareResponse.SessionId;
 
-        aes67::domain::StartPlaybackResult startResult = Execute(startCommand);
+        aes67::ipc::IpcResponse startResponse = HandleRequest(startRequest);
 
-        if (!startResult.Success)
+        if (!startResponse.Success)
         {
-            std::string startErrorMessage = "Start playback failed: " + startResult.ErrorMessage;
+            std::string startErrorMessage = "Start playback failed: " + startResponse.ErrorMessage;
             aes67::infra::Logger::Error(startErrorMessage.c_str());
             return;
         }
 
         std::string startedMessage =
-            "Started playback session " + startResult.SessionId +
-            " on channel " + std::to_string(startResult.ChannelNumber);
+            "Started playback session " + startResponse.SessionId +
+            " on channel " + std::to_string(startResponse.ChannelNumber);
         aes67::infra::Logger::Info(startedMessage.c_str());
 
         aes67::domain::ChannelInfo currentChannel;
-        if (_channelManager.TryGetChannel(startResult.ChannelNumber, currentChannel))
+        if (_channelManager.TryGetChannel(startResponse.ChannelNumber, currentChannel))
         {
             if (currentChannel.State == aes67::domain::ChannelState::Playing)
             {
@@ -191,25 +245,26 @@ namespace aes67::app
             aes67::infra::Logger::Error("Failed to retrieve playing channel.");
         }
 
-        aes67::commands::FinishPlaybackCommand finishCommand;
-        finishCommand.SessionId = startResult.SessionId;
+        aes67::ipc::IpcRequest finishRequest;
+        finishRequest.CommandType = aes67::ipc::IpcCommandType::FinishPlayback;
+        finishRequest.SessionId = startResponse.SessionId;
 
-        aes67::domain::FinishPlaybackResult finishResult = Execute(finishCommand);
+        aes67::ipc::IpcResponse finishResponse = HandleRequest(finishRequest);
 
-        if (!finishResult.Success)
+        if (!finishResponse.Success)
         {
-            std::string finishErrorMessage = "Finish playback failed: " + finishResult.ErrorMessage;
+            std::string finishErrorMessage = "Finish playback failed: " + finishResponse.ErrorMessage;
             aes67::infra::Logger::Error(finishErrorMessage.c_str());
             return;
         }
 
         std::string finishedMessage =
-            "Finished playback session " + finishResult.SessionId +
-            " on channel " + std::to_string(finishResult.ChannelNumber);
+            "Finished playback session " + finishResponse.SessionId +
+            " on channel " + std::to_string(finishResponse.ChannelNumber);
         aes67::infra::Logger::Info(finishedMessage.c_str());
 
         aes67::domain::ChannelInfo releasedChannel;
-        if (_channelManager.TryGetChannel(finishResult.ChannelNumber, releasedChannel))
+        if (_channelManager.TryGetChannel(finishResponse.ChannelNumber, releasedChannel))
         {
             if (releasedChannel.State == aes67::domain::ChannelState::Free)
             {

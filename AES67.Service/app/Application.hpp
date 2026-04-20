@@ -10,6 +10,8 @@
 #include "domain/PreparePlaybackResult.hpp"
 #include "domain/StartPlaybackResult.hpp"
 #include "engine/ChannelManager.hpp"
+#include "ipc/IpcRequest.hpp"
+#include "ipc/IpcResponse.hpp"
 #include "playback/PlaybackSessionManager.hpp"
 
 namespace aes67::app
@@ -23,6 +25,8 @@ namespace aes67::app
         aes67::domain::PreparePlaybackResult Execute(const aes67::commands::PreparePlaybackCommand& command);
         aes67::domain::StartPlaybackResult Execute(const aes67::commands::StartPlaybackCommand& command);
         aes67::domain::FinishPlaybackResult Execute(const aes67::commands::FinishPlaybackCommand& command);
+
+        aes67::ipc::IpcResponse HandleRequest(const aes67::ipc::IpcRequest& request);
 
     private:
         aes67::config::ServiceConfig _config;

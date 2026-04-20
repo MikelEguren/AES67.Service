@@ -164,6 +164,9 @@
     <ClInclude Include="engine\ChannelManager.hpp" />
     <ClInclude Include="gst\GstEngine.hpp" />
     <ClInclude Include="infra\Logger.hpp" />
+    <ClInclude Include="ipc\IpcCommandType.hpp" />
+    <ClInclude Include="ipc\IpcRequest.hpp" />
+    <ClInclude Include="ipc\IpcResponse.hpp" />
     <ClInclude Include="ipc\IpcServer.hpp" />
     <ClInclude Include="Playback\PlaybackSessionManager.hpp" />
   </ItemGroup>

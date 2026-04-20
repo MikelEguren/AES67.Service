@@ -89,5 +89,14 @@
     <ClInclude Include="commands\PreparePlaybackCommand.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ipc\IpcCommandType.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc\IpcRequest.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc\IpcResponse.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
