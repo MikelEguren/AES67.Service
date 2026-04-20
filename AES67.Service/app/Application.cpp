@@ -3,6 +3,7 @@
 #include <string>
 
 #include "infra/Logger.hpp"
+#include "ipc/IpcMessageSerializer.hpp"
 
 namespace aes67::app
 {
@@ -190,11 +191,17 @@ namespace aes67::app
     {
         aes67::infra::Logger::Info("Running in-memory playback self-test...");
 
+        std::string prepareMessage = "PREPARE|demo-audio.wav";
         aes67::ipc::IpcRequest prepareRequest;
-        prepareRequest.CommandType = aes67::ipc::IpcCommandType::PreparePlayback;
-        prepareRequest.SourcePath = "demo-audio.wav";
+
+        if (!aes67::ipc::IpcMessageSerializer::TryParseRequest(prepareMessage, prepareRequest))
+        {
+            aes67::infra::Logger::Error("Failed to parse prepare request.");
+            return;
+        }
 
         aes67::ipc::IpcResponse prepareResponse = HandleRequest(prepareRequest);
+        std::string prepareResponseMessage = aes67::ipc::IpcMessageSerializer::SerializeResponse(prepareResponse);
 
         if (!prepareResponse.Success)
         {
@@ -208,11 +215,20 @@ namespace aes67::app
             " on channel " + std::to_string(prepareResponse.ChannelNumber);
         aes67::infra::Logger::Info(preparedMessage.c_str());
 
+        std::string serializedPrepareMessage = "Serialized prepare response: " + prepareResponseMessage;
+        aes67::infra::Logger::Info(serializedPrepareMessage.c_str());
+
+        std::string startMessage = "START|" + prepareResponse.SessionId;
         aes67::ipc::IpcRequest startRequest;
-        startRequest.CommandType = aes67::ipc::IpcCommandType::StartPlayback;
-        startRequest.SessionId = prepareResponse.SessionId;
+
+        if (!aes67::ipc::IpcMessageSerializer::TryParseRequest(startMessage, startRequest))
+        {
+            aes67::infra::Logger::Error("Failed to parse start request.");
+            return;
+        }
 
         aes67::ipc::IpcResponse startResponse = HandleRequest(startRequest);
+        std::string startResponseMessage = aes67::ipc::IpcMessageSerializer::SerializeResponse(startResponse);
 
         if (!startResponse.Success)
         {
@@ -225,6 +241,9 @@ namespace aes67::app
             "Started playback session " + startResponse.SessionId +
             " on channel " + std::to_string(startResponse.ChannelNumber);
         aes67::infra::Logger::Info(startedMessage.c_str());
+
+        std::string serializedStartMessage = "Serialized start response: " + startResponseMessage;
+        aes67::infra::Logger::Info(serializedStartMessage.c_str());
 
         aes67::domain::ChannelInfo currentChannel;
         if (_channelManager.TryGetChannel(startResponse.ChannelNumber, currentChannel))
@@ -245,11 +264,17 @@ namespace aes67::app
             aes67::infra::Logger::Error("Failed to retrieve playing channel.");
         }
 
+        std::string finishMessage = "FINISH|" + startResponse.SessionId;
         aes67::ipc::IpcRequest finishRequest;
-        finishRequest.CommandType = aes67::ipc::IpcCommandType::FinishPlayback;
-        finishRequest.SessionId = startResponse.SessionId;
+
+        if (!aes67::ipc::IpcMessageSerializer::TryParseRequest(finishMessage, finishRequest))
+        {
+            aes67::infra::Logger::Error("Failed to parse finish request.");
+            return;
+        }
 
         aes67::ipc::IpcResponse finishResponse = HandleRequest(finishRequest);
+        std::string finishResponseMessage = aes67::ipc::IpcMessageSerializer::SerializeResponse(finishResponse);
 
         if (!finishResponse.Success)
         {
@@ -262,6 +287,9 @@ namespace aes67::app
             "Finished playback session " + finishResponse.SessionId +
             " on channel " + std::to_string(finishResponse.ChannelNumber);
         aes67::infra::Logger::Info(finishedMessage.c_str());
+
+        std::string serializedFinishMessage = "Serialized finish response: " + finishResponseMessage;
+        aes67::infra::Logger::Info(serializedFinishMessage.c_str());
 
         aes67::domain::ChannelInfo releasedChannel;
         if (_channelManager.TryGetChannel(finishResponse.ChannelNumber, releasedChannel))

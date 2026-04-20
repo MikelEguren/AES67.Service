@@ -1,0 +1,19 @@
+#pragma once
+
+#include <string>
+
+#include "ipc/IpcRequest.hpp"
+#include "ipc/IpcResponse.hpp"
+
+namespace aes67::ipc
+{
+    class IpcMessageSerializer
+    {
+    public:
+        static bool TryParseRequest(const std::string& message, IpcRequest& request);
+        static std::string SerializeResponse(const IpcResponse& response);
+
+    private:
+        static std::string TrimTrailingCarriageReturn(const std::string& value);
+    };
+}

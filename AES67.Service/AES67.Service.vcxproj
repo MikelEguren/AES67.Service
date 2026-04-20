@@ -145,6 +145,7 @@
     <ClCompile Include="engine\ChannelManager.cpp" />
     <ClCompile Include="gst\GstEngine.cpp" />
     <ClCompile Include="infra\Logger.cpp" />
+    <ClCompile Include="ipc\IpcMessageSerializer.cpp" />
     <ClCompile Include="ipc\IpcServer.cpp" />
     <ClCompile Include="Playback\PlaybackSessionManager.cpp" />
   </ItemGroup>
@@ -165,6 +166,7 @@
     <ClInclude Include="gst\GstEngine.hpp" />
     <ClInclude Include="infra\Logger.hpp" />
     <ClInclude Include="ipc\IpcCommandType.hpp" />
+    <ClInclude Include="ipc\IpcMessageSerializer.hpp" />
     <ClInclude Include="ipc\IpcRequest.hpp" />
     <ClInclude Include="ipc\IpcResponse.hpp" />
     <ClInclude Include="ipc\IpcServer.hpp" />
