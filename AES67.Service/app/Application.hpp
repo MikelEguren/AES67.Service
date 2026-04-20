@@ -49,5 +49,6 @@ namespace aes67::app
         void RunSelfTest();
 
         void LogServiceLoopResponses(const std::vector<std::string>& responses) const;
+        int GetServiceLoopIterationCount() const;
     };
 }

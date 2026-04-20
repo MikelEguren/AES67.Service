@@ -359,33 +359,48 @@ namespace aes67::app
         RunSelfTest();
         return 0;
     }
+    int Application::GetServiceLoopIterationCount() const
+    {
+        return _config.ServiceLoopIterationCount;
+    }
     int Application::RunServiceLoop()
     {
         aes67::infra::Logger::Info("Running in simulated service loop mode...");
 
-        aes67::ipc::IpcReceiveResult receiveResult = _messageSource->ReceiveMessages();
+        const int iterationCount = GetServiceLoopIterationCount();
 
-        if (!receiveResult.Success)
+        for (int iteration = 1; iteration <= iterationCount; ++iteration)
         {
-            std::string errorMessage = "IPC receive error: " + receiveResult.ErrorMessage;
-            aes67::infra::Logger::Error(errorMessage.c_str());
-            return -1;
+            std::string iterationMessage =
+                "Service loop iteration " + std::to_string(iteration) +
+                " of " + std::to_string(iterationCount) + ".";
+            aes67::infra::Logger::Info(iterationMessage.c_str());
+
+            aes67::ipc::IpcReceiveResult receiveResult = _messageSource->ReceiveMessages();
+
+            if (!receiveResult.Success)
+            {
+                std::string errorMessage = "IPC receive error: " + receiveResult.ErrorMessage;
+                aes67::infra::Logger::Error(errorMessage.c_str());
+                return -1;
+            }
+
+            if (receiveResult.Messages.empty())
+            {
+                aes67::infra::Logger::Info("No IPC messages received in current service loop iteration.");
+                continue;
+            }
+
+            std::string receivedCountMessage =
+                "Received " + std::to_string(receiveResult.Messages.size()) + " IPC message(s) in current service loop iteration.";
+            aes67::infra::Logger::Info(receivedCountMessage.c_str());
+
+            std::vector<std::string> responses = _ipcServer.ProcessMessages(receiveResult.Messages);
+
+            LogServiceLoopResponses(responses);
         }
 
-        if (receiveResult.Messages.empty())
-        {
-            aes67::infra::Logger::Info("No IPC messages received in current service loop iteration.");
-            return 0;
-        }
-
-        std::string receivedCountMessage =
-            "Received " + std::to_string(receiveResult.Messages.size()) + " IPC message(s) in current service loop iteration.";
-        aes67::infra::Logger::Info(receivedCountMessage.c_str());
-
-        std::vector<std::string> responses = _ipcServer.ProcessMessages(receiveResult.Messages);
-
-        LogServiceLoopResponses(responses);
-
+        aes67::infra::Logger::Info("Service loop completed configured iterations.");
         return 0;
     }
 
@@ -414,6 +429,10 @@ namespace aes67::app
 
         std::string channelMessage = "Configured channels: " + std::to_string(_config.ChannelCount);
         aes67::infra::Logger::Info(channelMessage.c_str());
+
+        std::string iterationCountMessage =
+            "Service loop iteration count: " + std::to_string(_config.ServiceLoopIterationCount);
+        aes67::infra::Logger::Info(iterationCountMessage.c_str());
 
         std::string socketMessage = "IPC socket path: " + _config.IpcSocketPath;
         aes67::infra::Logger::Info(socketMessage.c_str());
