@@ -148,6 +148,7 @@
     <ClCompile Include="ipc\InMemoryIpcMessageSource.cpp" />
     <ClCompile Include="ipc\IpcMessageSerializer.cpp" />
     <ClCompile Include="ipc\IpcServer.cpp" />
+    <ClCompile Include="ipc\UnixDomainSocketIpcMessageSource.cpp" />
     <ClCompile Include="Playback\PlaybackSessionManager.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -174,6 +175,7 @@
     <ClInclude Include="ipc\IpcRequest.hpp" />
     <ClInclude Include="ipc\IpcResponse.hpp" />
     <ClInclude Include="ipc\IpcServer.hpp" />
+    <ClInclude Include="ipc\UnixDomainSocketIpcMessageSource.hpp" />
     <ClInclude Include="Playback\PlaybackSessionManager.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

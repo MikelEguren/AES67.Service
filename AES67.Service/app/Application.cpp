@@ -344,6 +344,7 @@ namespace aes67::app
     int Application::RunServiceLoop()
     {
         aes67::infra::Logger::Info("Running in simulated service loop mode...");
+        aes67::infra::Logger::Info("Unix domain socket message source is not wired yet. Using in-memory source.");
 
         std::vector<std::string> messages = _messageSource.ReceiveMessages();
         std::vector<std::string> responses = _ipcServer.ProcessMessages(messages);
