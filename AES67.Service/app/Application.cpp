@@ -36,6 +36,10 @@ namespace
 
         return true;
     }
+    bool HasValue(const std::string& value)
+    {
+        return !IsNullOrWhiteSpace(value);
+    }
     const char* ToString(aes67::ipc::IpcCommandType commandType)
     {
         switch (commandType)
@@ -225,6 +229,13 @@ namespace aes67::app
         {
         case aes67::ipc::IpcCommandType::PreparePlayback:
         {
+            if (!HasValue(request.SourcePath))
+            {
+                response.Success = false;
+                response.ErrorMessage = "PreparePlayback request requires a non-empty source path.";
+                return response;
+            }
+
             aes67::commands::PreparePlaybackCommand command;
             command.SourcePath = request.SourcePath;
 
@@ -238,6 +249,13 @@ namespace aes67::app
 
         case aes67::ipc::IpcCommandType::StartPlayback:
         {
+            if (!HasValue(request.SessionId))
+            {
+                response.Success = false;
+                response.ErrorMessage = "StartPlayback request requires a non-empty session id.";
+                return response;
+            }
+
             aes67::commands::StartPlaybackCommand command;
             command.SessionId = request.SessionId;
 
@@ -251,6 +269,13 @@ namespace aes67::app
 
         case aes67::ipc::IpcCommandType::FinishPlayback:
         {
+            if (!HasValue(request.SessionId))
+            {
+                response.Success = false;
+                response.ErrorMessage = "FinishPlayback request requires a non-empty session id.";
+                return response;
+            }
+
             aes67::commands::FinishPlaybackCommand command;
             command.SessionId = request.SessionId;
 
