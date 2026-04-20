@@ -12,6 +12,7 @@
 #include "engine/ChannelManager.hpp"
 #include "ipc/IpcRequest.hpp"
 #include "ipc/IpcResponse.hpp"
+#include "ipc/IpcServer.hpp"
 #include "playback/PlaybackSessionManager.hpp"
 
 namespace aes67::app
@@ -32,6 +33,7 @@ namespace aes67::app
         aes67::config::ServiceConfig _config;
         aes67::engine::ChannelManager _channelManager;
         aes67::playback::PlaybackSessionManager _playbackSessionManager;
+        aes67::ipc::IpcServer _ipcServer;
 
         bool ValidateConfig();
         aes67::domain::PreparePlaybackResult PreparePlayback(const std::string& sourcePath);
