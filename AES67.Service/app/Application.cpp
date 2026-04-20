@@ -5,6 +5,7 @@
 #include "infra/Logger.hpp"
 #include "ipc/IpcMessageSerializer.hpp"
 #include <cctype>
+#include <vector>
 
 namespace
 {
@@ -341,7 +342,19 @@ namespace aes67::app
     }
     int Application::RunServiceLoop()
     {
-        aes67::infra::Logger::Info("Service loop mode is not implemented yet.");
+        aes67::infra::Logger::Info("Running in simulated service loop mode...");
+
+        std::vector<std::string> messages;
+        messages.push_back("PREPARE|service-demo.wav");
+
+        std::vector<std::string> responses = _ipcServer.ProcessMessages(messages);
+
+        for (const auto& response : responses)
+        {
+            std::string logMessage = "Service loop response: " + response;
+            aes67::infra::Logger::Info(logMessage.c_str());
+        }
+
         return 0;
     }
     int Application::Run()

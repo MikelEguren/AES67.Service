@@ -23,4 +23,17 @@ namespace aes67::ipc
         aes67::ipc::IpcResponse response = _application.HandleRequest(request);
         return aes67::ipc::IpcMessageSerializer::SerializeResponse(response);
     }
+
+    std::vector<std::string> IpcServer::ProcessMessages(const std::vector<std::string>& messages)
+    {
+        std::vector<std::string> responses;
+        responses.reserve(messages.size());
+
+        for (const auto& message : messages)
+        {
+            responses.push_back(ProcessMessage(message));
+        }
+
+        return responses;
+    }
 }
