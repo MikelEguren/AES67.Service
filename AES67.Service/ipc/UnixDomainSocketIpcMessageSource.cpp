@@ -7,6 +7,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <sys/time.h>
 #endif
 
 namespace aes67::ipc
@@ -37,6 +38,17 @@ namespace aes67::ipc
         {
             result.Success = false;
             result.ErrorMessage = std::string("Failed to create unix domain socket: ") + std::strerror(errno);
+            return false;
+        }
+        timeval timeout{};
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+
+        if (::setsockopt(_serverSocket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+        {
+            result.Success = false;
+            result.ErrorMessage = std::string("Failed to set unix domain socket receive timeout: ") + std::strerror(errno);
+            Cleanup();
             return false;
         }
 
@@ -118,12 +130,17 @@ namespace aes67::ipc
         }
 
         char buffer[1024];
-        const ssize_t bytesRead = ::read(clientSocket, buffer, sizeof(buffer) - 1);
-        if (bytesRead < 0)
+        const int clientSocket = ::accept(_serverSocket, nullptr, nullptr);
+        if (clientSocket < 0)
         {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                result.Success = true;
+                return result;
+            }
+
             result.Success = false;
-            result.ErrorMessage = std::string("Failed to read from unix domain socket: ") + std::strerror(errno);
-            ::close(clientSocket);
+            result.ErrorMessage = std::string("Failed to accept unix domain socket connection: ") + std::strerror(errno);
             return result;
         }
 
