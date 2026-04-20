@@ -344,18 +344,28 @@ namespace aes67::app
     {
         aes67::infra::Logger::Info("Running in simulated service loop mode...");
 
-        std::vector<std::string> messages;
-        messages.push_back("PREPARE|service-demo.wav");
-
+        std::vector<std::string> messages = GetServiceLoopMessages();
         std::vector<std::string> responses = _ipcServer.ProcessMessages(messages);
 
+        LogServiceLoopResponses(responses);
+
+        return 0;
+    }
+
+    std::vector<std::string> Application::GetServiceLoopMessages() const
+    {
+        std::vector<std::string> messages;
+        messages.push_back("PREPARE|service-demo.wav");
+        return messages;
+    }
+
+    void Application::LogServiceLoopResponses(const std::vector<std::string>& responses) const
+    {
         for (const auto& response : responses)
         {
             std::string logMessage = "Service loop response: " + response;
             aes67::infra::Logger::Info(logMessage.c_str());
         }
-
-        return 0;
     }
     int Application::Run()
     {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "commands/FinishPlaybackCommand.hpp"
 #include "commands/PreparePlaybackCommand.hpp"
@@ -43,5 +44,8 @@ namespace aes67::app
         int RunOnce();
         int RunServiceLoop();
         void RunSelfTest();
+
+        std::vector<std::string> GetServiceLoopMessages() const;
+        void LogServiceLoopResponses(const std::vector<std::string>& responses) const;
     };
 }
