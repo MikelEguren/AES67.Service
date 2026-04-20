@@ -6,6 +6,9 @@
 #include "ipc/IpcMessageSerializer.hpp"
 #include <cctype>
 #include <vector>
+#include <memory>
+#include "ipc/InMemoryIpcMessageSource.hpp"
+#include "ipc/UnixDomainSocketIpcMessageSource.hpp"
 
 namespace
 {
@@ -43,7 +46,22 @@ namespace aes67::app
         _playbackSessionManager(),
         _ipcServer(*this),
         _messageSource()
-    {}
+    {
+        switch (_config.Mode)
+        {
+        case aes67::config::ExecutionMode::RunOnce:
+            _messageSource = std::make_unique<aes67::ipc::InMemoryIpcMessageSource>();
+            break;
+
+        case aes67::config::ExecutionMode::ServiceLoop:
+            _messageSource = std::make_unique<aes67::ipc::UnixDomainSocketIpcMessageSource>(_config.IpcSocketPath);
+            break;
+
+        default:
+            _messageSource = std::make_unique<aes67::ipc::InMemoryIpcMessageSource>();
+            break;
+        }
+    }
 
     bool Application::ValidateConfig()
     {
@@ -344,9 +362,8 @@ namespace aes67::app
     int Application::RunServiceLoop()
     {
         aes67::infra::Logger::Info("Running in simulated service loop mode...");
-        aes67::infra::Logger::Info("Unix domain socket message source is not wired yet. Using in-memory source.");
 
-        std::vector<std::string> messages = _messageSource.ReceiveMessages();
+        std::vector<std::string> messages = _messageSource->ReceiveMessages();
         std::vector<std::string> responses = _ipcServer.ProcessMessages(messages);
 
         LogServiceLoopResponses(responses);

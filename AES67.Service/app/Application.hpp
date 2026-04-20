@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -11,10 +12,10 @@
 #include "domain/PreparePlaybackResult.hpp"
 #include "domain/StartPlaybackResult.hpp"
 #include "engine/ChannelManager.hpp"
+#include "ipc/IIpcMessageSource.hpp"
 #include "ipc/IpcRequest.hpp"
 #include "ipc/IpcResponse.hpp"
 #include "ipc/IpcServer.hpp"
-#include "ipc/InMemoryIpcMessageSource.hpp"
 #include "playback/PlaybackSessionManager.hpp"
 
 namespace aes67::app
@@ -36,7 +37,7 @@ namespace aes67::app
         aes67::engine::ChannelManager _channelManager;
         aes67::playback::PlaybackSessionManager _playbackSessionManager;
         aes67::ipc::IpcServer _ipcServer;
-        aes67::ipc::InMemoryIpcMessageSource _messageSource;
+        std::unique_ptr<aes67::ipc::IIpcMessageSource> _messageSource;
 
         bool ValidateConfig();
         aes67::domain::PreparePlaybackResult PreparePlayback(const std::string& sourcePath);
