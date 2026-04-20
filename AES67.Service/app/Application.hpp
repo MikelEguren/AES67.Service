@@ -39,6 +39,9 @@ namespace aes67::app
         aes67::domain::PreparePlaybackResult PreparePlayback(const std::string& sourcePath);
         aes67::domain::StartPlaybackResult StartPlayback(const std::string& sessionId);
         aes67::domain::FinishPlaybackResult FinishPlayback(const std::string& sessionId);
+
+        int RunOnce();
+        int RunServiceLoop();
         void RunSelfTest();
     };
 }

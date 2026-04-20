@@ -298,7 +298,17 @@ namespace aes67::app
             aes67::infra::Logger::Error("Failed to retrieve released channel.");
         }
     }
-
+    int Application::RunOnce()
+    {
+        aes67::infra::Logger::Info("Running in single-pass test mode...");
+        RunSelfTest();
+        return 0;
+    }
+    int Application::RunServiceLoop()
+    {
+        aes67::infra::Logger::Info("Service loop mode is not implemented yet.");
+        return 0;
+    }
     int Application::Run()
     {
         aes67::infra::Logger::Info("AES67 Service starting...");
@@ -320,10 +330,10 @@ namespace aes67::app
             " channels.";
         aes67::infra::Logger::Info(createdChannelsMessage.c_str());
 
-        RunSelfTest();
+        int exitCode = RunOnce();
 
         aes67::infra::Logger::Info("Service startup completed.");
 
-        return 0;
+        return exitCode;
     }
 }
