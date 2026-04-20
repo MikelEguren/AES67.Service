@@ -363,19 +363,26 @@ namespace aes67::app
     {
         aes67::infra::Logger::Info("Running in simulated service loop mode...");
 
-        std::vector<std::string> messages = _messageSource->ReceiveMessages();
+        aes67::ipc::IpcReceiveResult receiveResult = _messageSource->ReceiveMessages();
 
-        if (messages.empty())
+        if (!receiveResult.Success)
+        {
+            std::string errorMessage = "IPC receive error: " + receiveResult.ErrorMessage;
+            aes67::infra::Logger::Error(errorMessage.c_str());
+            return -1;
+        }
+
+        if (receiveResult.Messages.empty())
         {
             aes67::infra::Logger::Info("No IPC messages received in current service loop iteration.");
             return 0;
         }
 
         std::string receivedCountMessage =
-            "Received " + std::to_string(messages.size()) + " IPC message(s) in current service loop iteration.";
+            "Received " + std::to_string(receiveResult.Messages.size()) + " IPC message(s) in current service loop iteration.";
         aes67::infra::Logger::Info(receivedCountMessage.c_str());
 
-        std::vector<std::string> responses = _ipcServer.ProcessMessages(messages);
+        std::vector<std::string> responses = _ipcServer.ProcessMessages(receiveResult.Messages);
 
         LogServiceLoopResponses(responses);
 

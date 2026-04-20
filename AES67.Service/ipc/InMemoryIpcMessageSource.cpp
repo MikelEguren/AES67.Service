@@ -5,10 +5,13 @@ namespace aes67::ipc
     InMemoryIpcMessageSource::InMemoryIpcMessageSource()
     {}
 
-    std::vector<std::string> InMemoryIpcMessageSource::ReceiveMessages()
+    IpcReceiveResult InMemoryIpcMessageSource::ReceiveMessages()
     {
-        std::vector<std::string> messages;
-        messages.push_back("PREPARE|service-demo.wav");
-        return messages;
+        IpcReceiveResult result;
+        result.Success = true;
+
+        result.Messages.push_back("PREPARE|service-demo.wav");
+
+        return result;
     }
 }

@@ -12,6 +12,6 @@ namespace aes67::ipc
     public:
         InMemoryIpcMessageSource();
 
-        std::vector<std::string> ReceiveMessages() override;
+        IpcReceiveResult ReceiveMessages() override;
     };
 }

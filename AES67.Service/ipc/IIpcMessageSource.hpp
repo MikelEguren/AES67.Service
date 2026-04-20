@@ -1,7 +1,6 @@
 #pragma once
 
-#include <string>
-#include <vector>
+#include "ipc/IpcReceiveResult.hpp"
 
 namespace aes67::ipc
 {
@@ -10,6 +9,6 @@ namespace aes67::ipc
     public:
         virtual ~IIpcMessageSource() = default;
 
-        virtual std::vector<std::string> ReceiveMessages() = 0;
+        virtual IpcReceiveResult ReceiveMessages() = 0;
     };
 }

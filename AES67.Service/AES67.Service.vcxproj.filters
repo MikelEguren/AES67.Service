@@ -122,5 +122,8 @@
     <ClInclude Include="ipc\UnixDomainSocketIpcMessageSource.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ipc\IpcReceiveResult.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

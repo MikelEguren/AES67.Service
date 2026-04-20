@@ -172,6 +172,7 @@
     <ClInclude Include="ipc\InMemoryIpcMessageSource.hpp" />
     <ClInclude Include="ipc\IpcCommandType.hpp" />
     <ClInclude Include="ipc\IpcMessageSerializer.hpp" />
+    <ClInclude Include="ipc\IpcReceiveResult.hpp" />
     <ClInclude Include="ipc\IpcRequest.hpp" />
     <ClInclude Include="ipc\IpcResponse.hpp" />
     <ClInclude Include="ipc\IpcServer.hpp" />

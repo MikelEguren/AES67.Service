@@ -6,8 +6,10 @@ namespace aes67::ipc
         : _socketPath(socketPath)
     {}
 
-    std::vector<std::string> UnixDomainSocketIpcMessageSource::ReceiveMessages()
+    IpcReceiveResult UnixDomainSocketIpcMessageSource::ReceiveMessages()
     {
-        return {};
+        IpcReceiveResult result;
+        result.Success = true;
+        return result;
     }
 }

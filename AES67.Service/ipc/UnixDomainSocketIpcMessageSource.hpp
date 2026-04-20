@@ -12,7 +12,7 @@ namespace aes67::ipc
     public:
         explicit UnixDomainSocketIpcMessageSource(const std::string& socketPath);
 
-        std::vector<std::string> ReceiveMessages() override;
+        IpcReceiveResult ReceiveMessages() override;
 
     private:
         std::string _socketPath;
