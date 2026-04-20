@@ -11,6 +11,7 @@ namespace aes67::ipc
     {
     public:
         static bool TryParseRequest(const std::string& message, IpcRequest& request);
+        static bool TryParseResponse(const std::string& message, IpcResponse& response);
         static std::string SerializeResponse(const IpcResponse& response);
 
     private:

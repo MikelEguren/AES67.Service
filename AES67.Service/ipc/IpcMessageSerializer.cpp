@@ -74,6 +74,58 @@ namespace aes67::ipc
         return false;
     }
 
+    bool IpcMessageSerializer::TryParseResponse(const std::string& message, IpcResponse& response)
+    {
+        std::vector<std::string> parts;
+        std::stringstream stream(message);
+        std::string part;
+
+        while (std::getline(stream, part, '|'))
+        {
+            parts.push_back(TrimTrailingCarriageReturn(part));
+        }
+
+        if (parts.size() < 3)
+        {
+            return false;
+        }
+
+        if (parts[0] == "OK")
+        {
+            response.Success = true;
+        }
+        else if (parts[0] == "ERROR")
+        {
+            response.Success = false;
+        }
+        else
+        {
+            return false;
+        }
+
+        response.SessionId = parts[1];
+
+        if (!parts[2].empty())
+        {
+            response.ChannelNumber = std::stoi(parts[2]);
+        }
+        else
+        {
+            response.ChannelNumber = 0;
+        }
+
+        if (parts.size() >= 4)
+        {
+            response.ErrorMessage = parts[3];
+        }
+        else
+        {
+            response.ErrorMessage.clear();
+        }
+
+        return true;
+    }
+
     std::string IpcMessageSerializer::SerializeResponse(const IpcResponse& response)
     {
         std::string status = response.Success ? "OK" : "ERROR";

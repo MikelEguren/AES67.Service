@@ -195,14 +195,12 @@ namespace aes67::app
         std::string prepareResponseMessage = _ipcServer.ProcessMessage("PREPARE|demo-audio.wav");
         aes67::infra::Logger::Info(("Serialized prepare response: " + prepareResponseMessage).c_str());
 
-        aes67::ipc::IpcRequest prepareRequest;
-        if (!aes67::ipc::IpcMessageSerializer::TryParseRequest("PREPARE|demo-audio.wav", prepareRequest))
+        aes67::ipc::IpcResponse prepareResponse;
+        if (!aes67::ipc::IpcMessageSerializer::TryParseResponse(prepareResponseMessage, prepareResponse))
         {
-            aes67::infra::Logger::Error("Failed to parse prepare request.");
+            aes67::infra::Logger::Error("Failed to parse prepare response.");
             return;
         }
-
-        aes67::ipc::IpcResponse prepareResponse = HandleRequest(prepareRequest);
 
         if (!prepareResponse.Success)
         {
@@ -220,14 +218,12 @@ namespace aes67::app
         std::string startResponseMessage = _ipcServer.ProcessMessage(startCommandText);
         aes67::infra::Logger::Info(("Serialized start response: " + startResponseMessage).c_str());
 
-        aes67::ipc::IpcRequest startRequest;
-        if (!aes67::ipc::IpcMessageSerializer::TryParseRequest(startCommandText, startRequest))
+        aes67::ipc::IpcResponse startResponse;
+        if (!aes67::ipc::IpcMessageSerializer::TryParseResponse(startResponseMessage, startResponse))
         {
-            aes67::infra::Logger::Error("Failed to parse start request.");
+            aes67::infra::Logger::Error("Failed to parse start response.");
             return;
         }
-
-        aes67::ipc::IpcResponse startResponse = HandleRequest(startRequest);
 
         if (!startResponse.Success)
         {
@@ -264,14 +260,12 @@ namespace aes67::app
         std::string finishResponseMessage = _ipcServer.ProcessMessage(finishCommandText);
         aes67::infra::Logger::Info(("Serialized finish response: " + finishResponseMessage).c_str());
 
-        aes67::ipc::IpcRequest finishRequest;
-        if (!aes67::ipc::IpcMessageSerializer::TryParseRequest(finishCommandText, finishRequest))
+        aes67::ipc::IpcResponse finishResponse;
+        if (!aes67::ipc::IpcMessageSerializer::TryParseResponse(finishResponseMessage, finishResponse))
         {
-            aes67::infra::Logger::Error("Failed to parse finish request.");
+            aes67::infra::Logger::Error("Failed to parse finish response.");
             return;
         }
-
-        aes67::ipc::IpcResponse finishResponse = HandleRequest(finishRequest);
 
         if (!finishResponse.Success)
         {
