@@ -50,5 +50,6 @@ namespace aes67::app
 
         void LogServiceLoopResponses(const std::vector<std::string>& responses) const;
         int GetServiceLoopIterationCount() const;
+        bool IsLinuxPlatform() const;
     };
 }

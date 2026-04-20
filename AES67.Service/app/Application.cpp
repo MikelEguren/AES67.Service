@@ -54,7 +54,14 @@ namespace aes67::app
             break;
 
         case aes67::config::ExecutionMode::ServiceLoop:
-            _messageSource = std::make_unique<aes67::ipc::UnixDomainSocketIpcMessageSource>(_config.IpcSocketPath);
+            if (IsLinuxPlatform())
+            {
+                _messageSource = std::make_unique<aes67::ipc::UnixDomainSocketIpcMessageSource>(_config.IpcSocketPath);
+            }
+            else
+            {
+                _messageSource = std::make_unique<aes67::ipc::InMemoryIpcMessageSource>();
+            }
             break;
 
         default:
@@ -363,9 +370,22 @@ namespace aes67::app
     {
         return _config.ServiceLoopIterationCount;
     }
+    bool Application::IsLinuxPlatform() const
+    {
+        #if defined(__linux__)
+                return true;
+        #else
+                return false;
+        #endif
+    }
     int Application::RunServiceLoop()
     {
         aes67::infra::Logger::Info("Running in simulated service loop mode...");
+
+        if (!IsLinuxPlatform())
+        {
+            aes67::infra::Logger::Info("ServiceLoop requested on non-Linux platform. Falling back to in-memory IPC message source.");
+        }
 
         const int iterationCount = GetServiceLoopIterationCount();
 

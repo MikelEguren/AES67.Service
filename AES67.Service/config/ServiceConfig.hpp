@@ -8,7 +8,8 @@ namespace aes67::config
 {
     struct ServiceConfig
     {
-        ExecutionMode Mode{ ExecutionMode::RunOnce };
+        ExecutionMode Mode{ ExecutionMode::ServiceLoop };
+        //ExecutionMode Mode{ ExecutionMode::RunOnce };
         int ChannelCount{ 4 };
         int ServiceLoopIterationCount{ 3 };
         int SampleRate{ 48000 };
