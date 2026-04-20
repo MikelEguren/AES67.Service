@@ -39,6 +39,9 @@
     <ClCompile Include="ipc\IpcMessageSerializer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ipc\InMemoryIpcMessageSource.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app\Application.hpp">
@@ -105,6 +108,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="config\ExecutionMode.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc\IIpcMessageSource.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ipc\InMemoryIpcMessageSource.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

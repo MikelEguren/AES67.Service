@@ -14,6 +14,7 @@
 #include "ipc/IpcRequest.hpp"
 #include "ipc/IpcResponse.hpp"
 #include "ipc/IpcServer.hpp"
+#include "ipc/InMemoryIpcMessageSource.hpp"
 #include "playback/PlaybackSessionManager.hpp"
 
 namespace aes67::app
@@ -35,6 +36,7 @@ namespace aes67::app
         aes67::engine::ChannelManager _channelManager;
         aes67::playback::PlaybackSessionManager _playbackSessionManager;
         aes67::ipc::IpcServer _ipcServer;
+        aes67::ipc::InMemoryIpcMessageSource _messageSource;
 
         bool ValidateConfig();
         aes67::domain::PreparePlaybackResult PreparePlayback(const std::string& sourcePath);
@@ -45,7 +47,6 @@ namespace aes67::app
         int RunServiceLoop();
         void RunSelfTest();
 
-        std::vector<std::string> GetServiceLoopMessages() const;
         void LogServiceLoopResponses(const std::vector<std::string>& responses) const;
     };
 }
