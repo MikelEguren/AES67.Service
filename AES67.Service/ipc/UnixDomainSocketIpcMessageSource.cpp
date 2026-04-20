@@ -9,7 +9,15 @@ namespace aes67::ipc
     IpcReceiveResult UnixDomainSocketIpcMessageSource::ReceiveMessages()
     {
         IpcReceiveResult result;
-        result.Success = true;
+
+#if defined(__linux__)
+        result.Success = false;
+        result.ErrorMessage = "Unix domain socket message source is not implemented yet on Linux.";
+#else
+        result.Success = false;
+        result.ErrorMessage = "Unix domain socket message source is only supported on Linux.";
+#endif
+
         return result;
     }
 }
