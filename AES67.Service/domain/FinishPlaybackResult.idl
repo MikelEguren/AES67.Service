@@ -1,9 +1,0 @@
-namespace AES67Service
-{
-    [default_interface]
-    runtimeclass FinishPlaybackResult : Windows.UI.Xaml.Controls.Page
-    {
-        FinishPlaybackResult();
-        Int32 MyProperty;
-    }
-}
