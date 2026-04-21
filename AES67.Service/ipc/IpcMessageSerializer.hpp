@@ -15,6 +15,6 @@ namespace aes67::ipc
         static std::string SerializeResponse(const IpcResponse& response);
 
     private:
-        static std::string TrimTrailingCarriageReturn(const std::string& value);
+        static std::string TrimToken(const std::string& value);
     };
 }

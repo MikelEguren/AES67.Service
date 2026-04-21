@@ -5,14 +5,22 @@
 
 namespace aes67::ipc
 {
-    std::string IpcMessageSerializer::TrimTrailingCarriageReturn(const std::string& value)
+    std::string IpcMessageSerializer::TrimToken(const std::string& value)
     {
-        if (!value.empty() && value.back() == '\r')
+        std::size_t start = 0;
+        std::size_t end = value.size();
+
+        while (start < end && (value[start] == ' ' || value[start] == '\t' || value[start] == '\r' || value[start] == '\n'))
         {
-            return value.substr(0, value.size() - 1);
+            ++start;
         }
 
-        return value;
+        while (end > start && (value[end - 1] == ' ' || value[end - 1] == '\t' || value[end - 1] == '\r' || value[end - 1] == '\n'))
+        {
+            --end;
+        }
+
+        return value.substr(start, end - start);
     }
 
     bool IpcMessageSerializer::TryParseRequest(const std::string& message, IpcRequest& request, std::string& errorMessage)
@@ -23,7 +31,7 @@ namespace aes67::ipc
 
         while (std::getline(stream, part, '|'))
         {
-            parts.push_back(TrimTrailingCarriageReturn(part));
+            parts.push_back(TrimToken(part));
         }
 
         if (parts.empty())
@@ -90,7 +98,7 @@ namespace aes67::ipc
 
         while (std::getline(stream, part, '|'))
         {
-            parts.push_back(TrimTrailingCarriageReturn(part));
+            parts.push_back(TrimToken(part));
         }
 
         if (parts.size() < 3)
