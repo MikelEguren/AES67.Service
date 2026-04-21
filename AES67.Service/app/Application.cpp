@@ -182,6 +182,15 @@ namespace aes67::app
         result.Success = true;
         result.SessionId = session.SessionId;
         result.ChannelNumber = session.ChannelNumber;
+
+        if (result.Success)
+        {
+            aes67::domain::PlaybackSession session;
+            if (_playbackSessionManager.TryGetSession(sessionId, session))
+            {
+                _gstEngine.PlayFile(session.SourcePath);
+            }
+        }
         return result;
     }
 
