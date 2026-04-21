@@ -17,6 +17,7 @@
 #include "ipc/IpcResponse.hpp"
 #include "ipc/IpcServer.hpp"
 #include "playback/PlaybackSessionManager.hpp"
+#include "gst/GstEngine.hpp"
 
 namespace aes67::app
 {
@@ -38,6 +39,7 @@ namespace aes67::app
         aes67::playback::PlaybackSessionManager _playbackSessionManager;
         aes67::ipc::IpcServer _ipcServer;
         std::unique_ptr<aes67::ipc::IIpcMessageSource> _messageSource;
+        aes67::gst::GstEngine _gstEngine;
 
         bool ValidateConfig();
         aes67::domain::PreparePlaybackResult PreparePlayback(const std::string& sourcePath);

@@ -490,6 +490,11 @@ namespace aes67::app
     int Application::Run()
     {
         aes67::infra::Logger::Info("AES67 Service starting...");
+        if (!_gstEngine.Initialize())
+        {
+            aes67::infra::Logger::Error("Failed to initialize GStreamer.");
+            return -1;
+        }
 
         if (!ValidateConfig())
         {

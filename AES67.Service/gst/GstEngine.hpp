@@ -6,5 +6,12 @@ namespace aes67::gst
     {
     public:
         GstEngine();
+        ~GstEngine();
+
+        bool Initialize();
+        void Shutdown();
+
+    private:
+        bool _initialized{ false };
     };
 }
