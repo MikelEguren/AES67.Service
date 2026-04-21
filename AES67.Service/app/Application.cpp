@@ -179,18 +179,19 @@ namespace aes67::app
             return result;
         }
 
+        if (!_gstEngine.PlayFile(session.SourcePath))
+        {
+            _playbackSessionManager.MarkSessionFinished(sessionId);
+            _channelManager.ReleaseChannel(session.ChannelNumber);
+
+            result.Success = false;
+            result.ErrorMessage = _gstEngine.GetLastError();
+            return result;
+        }
+
         result.Success = true;
         result.SessionId = session.SessionId;
         result.ChannelNumber = session.ChannelNumber;
-
-        if (result.Success)
-        {
-            aes67::domain::PlaybackSession session;
-            if (_playbackSessionManager.TryGetSession(sessionId, session))
-            {
-                _gstEngine.PlayFile(session.SourcePath);
-            }
-        }
         return result;
     }
 

@@ -14,12 +14,14 @@ namespace aes67::gst
         void Shutdown();
 
         bool PlayFile(const std::string& path);
+        const std::string& GetLastError() const;
 
     private:
         bool _initialized{ false };
+        std::string _lastError;
 
 #if defined(__linux__)
-        void* _pipeline{ nullptr }; // GstElement*
+        void* _pipeline{ nullptr };
 #endif
     };
 }
