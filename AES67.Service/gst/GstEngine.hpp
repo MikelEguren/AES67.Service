@@ -15,6 +15,7 @@ namespace aes67::gst
 
         bool PlayFile(const std::string& path);
         const std::string& GetLastError() const;
+        bool Stop();
 
     private:
         bool _initialized{ false };

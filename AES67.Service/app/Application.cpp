@@ -213,7 +213,7 @@ namespace aes67::app
             result.ErrorMessage = "Session is not in playing state.";
             return result;
         }
-
+        _gstEngine.Stop();
         if (!_channelManager.ReleaseChannel(session.ChannelNumber))
         {
             result.Success = false;

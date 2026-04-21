@@ -165,4 +165,28 @@ namespace aes67::gst
     {
         return _lastError;
     }
+    bool GstEngine::Stop()
+    {
+    #if defined(__linux__)
+            if (!_pipeline)
+            {
+                aes67::infra::Logger::Info("No active pipeline to stop.");
+                return true;
+            }
+
+            GstElement* pipeline = static_cast<GstElement*>(_pipeline);
+
+            gst_element_set_state(pipeline, GST_STATE_NULL);
+            gst_object_unref(pipeline);
+
+            _pipeline = nullptr;
+
+            aes67::infra::Logger::Info("Playback stopped.");
+
+            return true;
+    #else
+            aes67::infra::Logger::Info("Stop skipped (non-Linux platform).");
+            return true;
+    #endif
+    }
 }
