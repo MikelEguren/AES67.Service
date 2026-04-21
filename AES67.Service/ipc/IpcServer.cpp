@@ -2,6 +2,7 @@
 
 #include "app/Application.hpp"
 #include "ipc/IpcMessageSerializer.hpp"
+#include <vector>
 
 namespace aes67::ipc
 {
@@ -12,11 +13,13 @@ namespace aes67::ipc
     std::string IpcServer::ProcessMessage(const std::string& message)
     {
         aes67::ipc::IpcRequest request;
-        if (!aes67::ipc::IpcMessageSerializer::TryParseRequest(message, request))
+        std::string parseErrorMessage;
+
+        if (!aes67::ipc::IpcMessageSerializer::TryParseRequest(message, request, parseErrorMessage))
         {
             aes67::ipc::IpcResponse errorResponse;
             errorResponse.Success = false;
-            errorResponse.ErrorMessage = "Invalid IPC request format.";
+            errorResponse.ErrorMessage = parseErrorMessage;
             return aes67::ipc::IpcMessageSerializer::SerializeResponse(errorResponse);
         }
 

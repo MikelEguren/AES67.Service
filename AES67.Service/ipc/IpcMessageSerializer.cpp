@@ -15,7 +15,7 @@ namespace aes67::ipc
         return value;
     }
 
-    bool IpcMessageSerializer::TryParseRequest(const std::string& message, IpcRequest& request)
+    bool IpcMessageSerializer::TryParseRequest(const std::string& message, IpcRequest& request, std::string& errorMessage)
     {
         std::vector<std::string> parts;
         std::stringstream stream(message);
@@ -28,6 +28,7 @@ namespace aes67::ipc
 
         if (parts.empty())
         {
+            errorMessage = "IPC request is empty.";
             return false;
         }
 
@@ -35,12 +36,14 @@ namespace aes67::ipc
         {
             if (parts.size() < 2)
             {
+                errorMessage = "PREPARE request requires source path.";
                 return false;
             }
 
             request.CommandType = IpcCommandType::PreparePlayback;
             request.SourcePath = parts[1];
             request.SessionId.clear();
+            errorMessage.clear();
             return true;
         }
 
@@ -48,12 +51,14 @@ namespace aes67::ipc
         {
             if (parts.size() < 2)
             {
+                errorMessage = "START request requires session id.";
                 return false;
             }
 
             request.CommandType = IpcCommandType::StartPlayback;
             request.SessionId = parts[1];
             request.SourcePath.clear();
+            errorMessage.clear();
             return true;
         }
 
@@ -61,16 +66,19 @@ namespace aes67::ipc
         {
             if (parts.size() < 2)
             {
+                errorMessage = "FINISH request requires session id.";
                 return false;
             }
 
             request.CommandType = IpcCommandType::FinishPlayback;
             request.SessionId = parts[1];
             request.SourcePath.clear();
+            errorMessage.clear();
             return true;
         }
 
         request.CommandType = IpcCommandType::Unknown;
+        errorMessage = "Unknown IPC command.";
         return false;
     }
 

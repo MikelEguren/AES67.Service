@@ -149,7 +149,7 @@
     <ClCompile Include="ipc\IpcMessageSerializer.cpp" />
     <ClCompile Include="ipc\IpcServer.cpp" />
     <ClCompile Include="ipc\UnixDomainSocketIpcMessageSource.cpp" />
-    <ClCompile Include="Playback\PlaybackSessionManager.cpp" />
+    <ClCompile Include="playback\PlaybackSessionManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="app\Application.hpp" />

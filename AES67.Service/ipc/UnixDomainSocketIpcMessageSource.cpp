@@ -28,64 +28,39 @@ namespace aes67::ipc
     bool UnixDomainSocketIpcMessageSource::EnsureInitialized(IpcReceiveResult& result)
     {
 #if defined(__linux__)
-        if (_isInitialized)
+        char buffer[1024];
+
+        const int clientSocket = ::accept(_serverSocket, nullptr, nullptr);
+        if (clientSocket < 0)
         {
-            return true;
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                result.Success = true;
+                return result;
+            }
+
+            result.Success = false;
+            result.ErrorMessage = std::string("Failed to accept unix domain socket connection: ") + std::strerror(errno);
+            return result;
         }
 
-        _serverSocket = ::socket(AF_UNIX, SOCK_STREAM, 0);
-        if (_serverSocket < 0)
+        const ssize_t bytesRead = ::read(clientSocket, buffer, sizeof(buffer) - 1);
+        if (bytesRead < 0)
         {
             result.Success = false;
-            result.ErrorMessage = std::string("Failed to create unix domain socket: ") + std::strerror(errno);
-            return false;
+            result.ErrorMessage = std::string("Failed to read unix domain socket message: ") + std::strerror(errno);
+            ::close(clientSocket);
+            return result;
         }
-        timeval timeout{};
-        timeout.tv_sec = 1;
-        timeout.tv_usec = 0;
 
-        if (::setsockopt(_serverSocket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
+        if (bytesRead > 0)
         {
-            result.Success = false;
-            result.ErrorMessage = std::string("Failed to set unix domain socket receive timeout: ") + std::strerror(errno);
-            Cleanup();
-            return false;
+            buffer[bytesRead] = '\0';
+            result.Messages.push_back(std::string(buffer));
         }
 
-        ::unlink(_socketPath.c_str());
-
-        sockaddr_un address{};
-        address.sun_family = AF_UNIX;
-
-        if (_socketPath.size() >= sizeof(address.sun_path))
-        {
-            result.Success = false;
-            result.ErrorMessage = "IPC socket path is too long for unix domain socket.";
-            Cleanup();
-            return false;
-        }
-
-        std::strncpy(address.sun_path, _socketPath.c_str(), sizeof(address.sun_path) - 1);
-        address.sun_path[sizeof(address.sun_path) - 1] = '\0';
-
-        if (::bind(_serverSocket, reinterpret_cast<sockaddr*>(&address), sizeof(address)) < 0)
-        {
-            result.Success = false;
-            result.ErrorMessage = std::string("Failed to bind unix domain socket: ") + std::strerror(errno);
-            Cleanup();
-            return false;
-        }
-
-        if (::listen(_serverSocket, 1) < 0)
-        {
-            result.Success = false;
-            result.ErrorMessage = std::string("Failed to listen on unix domain socket: ") + std::strerror(errno);
-            Cleanup();
-            return false;
-        }
-
-        _isInitialized = true;
-        return true;
+        ::close(clientSocket);
+        result.Success = true;
 #else
         result.Success = false;
         result.ErrorMessage = "Unix domain socket message source is only supported on Linux.";
