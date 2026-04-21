@@ -7,7 +7,6 @@
 
 #include <cerrno>
 #include <cstring>
-#include <sys/time.h>
 #endif
 
 namespace aes67::ipc
@@ -28,39 +27,53 @@ namespace aes67::ipc
     bool UnixDomainSocketIpcMessageSource::EnsureInitialized(IpcReceiveResult& result)
     {
 #if defined(__linux__)
-        char buffer[1024];
-
-        const int clientSocket = ::accept(_serverSocket, nullptr, nullptr);
-        if (clientSocket < 0)
+        if (_isInitialized)
         {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-            {
-                result.Success = true;
-                return result;
-            }
-
-            result.Success = false;
-            result.ErrorMessage = std::string("Failed to accept unix domain socket connection: ") + std::strerror(errno);
-            return result;
+            return true;
         }
 
-        const ssize_t bytesRead = ::read(clientSocket, buffer, sizeof(buffer) - 1);
-        if (bytesRead < 0)
+        if (_socketPath.empty())
         {
             result.Success = false;
-            result.ErrorMessage = std::string("Failed to read unix domain socket message: ") + std::strerror(errno);
-            ::close(clientSocket);
-            return result;
+            result.ErrorMessage = "Unix domain socket path is empty.";
+            return false;
         }
 
-        if (bytesRead > 0)
+        _serverSocket = ::socket(AF_UNIX, SOCK_STREAM, 0);
+        if (_serverSocket < 0)
         {
-            buffer[bytesRead] = '\0';
-            result.Messages.push_back(std::string(buffer));
+            result.Success = false;
+            result.ErrorMessage = std::string("Failed to create unix domain socket: ") + std::strerror(errno);
+            return false;
         }
 
-        ::close(clientSocket);
-        result.Success = true;
+        ::unlink(_socketPath.c_str());
+
+        sockaddr_un address{};
+        address.sun_family = AF_UNIX;
+        std::strncpy(address.sun_path, _socketPath.c_str(), sizeof(address.sun_path) - 1);
+
+        if (::bind(_serverSocket, reinterpret_cast<sockaddr*>(&address), sizeof(address)) < 0)
+        {
+            result.Success = false;
+            result.ErrorMessage = std::string("Failed to bind unix domain socket: ") + std::strerror(errno);
+            ::close(_serverSocket);
+            _serverSocket = -1;
+            return false;
+        }
+
+        if (::listen(_serverSocket, 5) < 0)
+        {
+            result.Success = false;
+            result.ErrorMessage = std::string("Failed to listen on unix domain socket: ") + std::strerror(errno);
+            ::close(_serverSocket);
+            _serverSocket = -1;
+            ::unlink(_socketPath.c_str());
+            return false;
+        }
+
+        _isInitialized = true;
+        return true;
 #else
         result.Success = false;
         result.ErrorMessage = "Unix domain socket message source is only supported on Linux.";
@@ -96,15 +109,8 @@ namespace aes67::ipc
         }
 
 #if defined(__linux__)
-        const int clientSocket = ::accept(_serverSocket, nullptr, nullptr);
-        if (clientSocket < 0)
-        {
-            result.Success = false;
-            result.ErrorMessage = std::string("Failed to accept unix domain socket connection: ") + std::strerror(errno);
-            return result;
-        }
-
         char buffer[1024];
+
         const int clientSocket = ::accept(_serverSocket, nullptr, nullptr);
         if (clientSocket < 0)
         {
@@ -116,6 +122,15 @@ namespace aes67::ipc
 
             result.Success = false;
             result.ErrorMessage = std::string("Failed to accept unix domain socket connection: ") + std::strerror(errno);
+            return result;
+        }
+
+        const ssize_t bytesRead = ::read(clientSocket, buffer, sizeof(buffer) - 1);
+        if (bytesRead < 0)
+        {
+            result.Success = false;
+            result.ErrorMessage = std::string("Failed to read unix domain socket message: ") + std::strerror(errno);
+            ::close(clientSocket);
             return result;
         }
 
