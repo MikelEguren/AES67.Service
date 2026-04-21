@@ -15,6 +15,6 @@ namespace aes67::config
         int SampleRate{ 48000 };
         int BitsPerSample{ 16 };
         bool Mono{ true };
-        std::string IpcSocketPath{ "/run/aes67/aes67.sock" };
+        std::string IpcSocketPath{ "/tmp/aes67.sock" };
     };
 }
