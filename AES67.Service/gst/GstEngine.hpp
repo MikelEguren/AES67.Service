@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 
 namespace aes67::gst
 {
@@ -13,16 +14,16 @@ namespace aes67::gst
         bool Initialize();
         void Shutdown();
 
-        bool PlayFile(const std::string& path);
+        bool PlayFile(const std::string& sessionId, const std::string& path);
+        bool Stop(const std::string& sessionId);
         const std::string& GetLastError() const;
-        bool Stop();
 
     private:
         bool _initialized{ false };
         std::string _lastError;
 
 #if defined(__linux__)
-        void* _pipeline{ nullptr };
+        std::unordered_map<std::string, void*> _pipelines;
 #endif
     };
 }

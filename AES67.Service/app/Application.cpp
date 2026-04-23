@@ -179,7 +179,7 @@ namespace aes67::app
             return result;
         }
 
-        if (!_gstEngine.PlayFile(session.SourcePath))
+        if (!_gstEngine.PlayFile(session.SessionId, session.SourcePath))
         {
             _playbackSessionManager.MarkSessionFinished(sessionId);
             _channelManager.ReleaseChannel(session.ChannelNumber);
@@ -213,7 +213,7 @@ namespace aes67::app
             result.ErrorMessage = "Session is not in playing state.";
             return result;
         }
-        _gstEngine.Stop();
+        _gstEngine.Stop(session.SessionId);
         if (!_channelManager.ReleaseChannel(session.ChannelNumber))
         {
             result.Success = false;
