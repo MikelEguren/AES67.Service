@@ -140,32 +140,20 @@ namespace aes67::gst
 
         GstElement* audioConvert = gst_element_factory_make("audioconvert", nullptr);
         GstElement* audioResample = gst_element_factory_make("audioresample", nullptr);
-        GstElement* capsFilter = gst_element_factory_make("capsfilter", nullptr);
         GstElement* audioSink = gst_element_factory_make("autoaudiosink", nullptr);
 
-        if (!audioConvert || !audioResample || !capsFilter || !audioSink)
+        if (!audioConvert || !audioResample || !audioSink)
         {
             _lastError = "Failed to create audio output elements.";
             aes67::infra::Logger::Error(_lastError.c_str());
 
             if (audioConvert) gst_object_unref(audioConvert);
             if (audioResample) gst_object_unref(audioResample);
-            if (capsFilter) gst_object_unref(capsFilter);
             if (audioSink) gst_object_unref(audioSink);
 
             gst_object_unref(pipeline);
             return false;
         }
-
-        GstCaps* caps = gst_caps_new_simple(
-            "audio/x-raw",
-            "format", G_TYPE_STRING, "S16LE",
-            "rate", G_TYPE_INT, 48000,
-            "channels", G_TYPE_INT, 1,
-            NULL);
-
-        g_object_set(capsFilter, "caps", caps, NULL);
-        gst_caps_unref(caps);
 
         GstElement* audioBin = gst_bin_new(nullptr);
 
@@ -173,11 +161,10 @@ namespace aes67::gst
             GST_BIN(audioBin),
             audioConvert,
             audioResample,
-            capsFilter,
             audioSink,
             NULL);
 
-        if (!gst_element_link_many(audioConvert, audioResample, capsFilter, audioSink, NULL))
+        if (!gst_element_link_many(audioConvert, audioResample, audioSink, NULL))
         {
             _lastError = "Failed to link audio output elements.";
             aes67::infra::Logger::Error(_lastError.c_str());
