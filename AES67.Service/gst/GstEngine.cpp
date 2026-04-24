@@ -19,60 +19,6 @@ namespace aes67::gst
             std::ifstream file(path);
             return file.good();
         }
-
-#if defined(__linux__)
-        GstFlowReturn OnNewSample(GstAppSink* sink, gpointer user_data)
-        {
-            static bool loggedCaps = false;
-
-            GstSample* sample = gst_app_sink_pull_sample(sink);
-            if (!sample)
-            {
-                return GST_FLOW_ERROR;
-            }
-
-            GstCaps* caps = gst_sample_get_caps(sample);
-
-            if (caps && !loggedCaps)
-            {
-                GstStructure* structure = gst_caps_get_structure(caps, 0);
-
-                const gchar* format = gst_structure_get_string(structure, "format");
-
-                int rate = 0;
-                int channels = 0;
-
-                gst_structure_get_int(structure, "rate", &rate);
-                gst_structure_get_int(structure, "channels", &channels);
-
-                std::string msg = "Audio caps: format=" +
-                    std::string(format ? format : "unknown") +
-                    " rate=" + std::to_string(rate) +
-                    " channels=" + std::to_string(channels);
-
-                aes67::infra::Logger::Info(msg.c_str());
-
-                loggedCaps = true;
-            }
-
-            GstBuffer* buffer = gst_sample_get_buffer(sample);
-            if (buffer)
-            {
-                GstMapInfo map;
-                if (gst_buffer_map(buffer, &map, GST_MAP_READ))
-                {
-                    // Aquí tienes audio real
-                    // map.data → puntero a muestras
-                    // map.size → tamaño en bytes
-
-                    gst_buffer_unmap(buffer, &map);
-                }
-            }
-
-            gst_sample_unref(sample);
-            return GST_FLOW_OK;
-        }
-#endif
     }
 
     GstEngine::GstEngine()
@@ -201,20 +147,14 @@ namespace aes67::gst
         GstElement* localSink = gst_element_factory_make("autoaudiosink", nullptr);
 
         GstElement* aes67Queue = gst_element_factory_make("queue", nullptr);
+        GstElement* aes67Convert = gst_element_factory_make("audioconvert", nullptr);
+        GstElement* aes67Resample = gst_element_factory_make("audioresample", nullptr);
+        GstElement* aes67CapsFilter = gst_element_factory_make("capsfilter", nullptr);
         GstElement* aes67Sink = gst_element_factory_make("appsink", nullptr);
 
-        if (aes67Queue)
-        {
-            g_object_set(
-                aes67Queue,
-                "max-size-buffers", 2,
-                "max-size-time", 0,
-                "max-size-bytes", 0,
-                "leaky", 2,
-                NULL);
-        }
-
-        if (!audioConvert || !audioResample || !tee || !localQueue || !localSink || !aes67Queue || !aes67Sink)
+        if (!audioConvert || !audioResample || !tee ||
+            !localQueue || !localSink ||
+            !aes67Queue || !aes67Convert || !aes67Resample || !aes67CapsFilter || !aes67Sink)
         {
             _lastError = "Failed to create tee audio output elements.";
             aes67::infra::Logger::Error(_lastError.c_str());
@@ -225,6 +165,9 @@ namespace aes67::gst
             if (localQueue) gst_object_unref(localQueue);
             if (localSink) gst_object_unref(localSink);
             if (aes67Queue) gst_object_unref(aes67Queue);
+            if (aes67Convert) gst_object_unref(aes67Convert);
+            if (aes67Resample) gst_object_unref(aes67Resample);
+            if (aes67CapsFilter) gst_object_unref(aes67CapsFilter);
             if (aes67Sink) gst_object_unref(aes67Sink);
 
             gst_object_unref(pipeline);
@@ -232,18 +175,30 @@ namespace aes67::gst
         }
 
         g_object_set(
-            aes67Sink,
-            "emit-signals", TRUE,
-            "sync", FALSE,
-            "max-buffers", 2,
-            "drop", TRUE,
+            aes67Queue,
+            "max-size-buffers", 10,
+            "max-size-time", 0,
+            "max-size-bytes", 0,
+            "leaky", 2,
             NULL);
 
-        g_signal_connect(
+        GstCaps* aes67Caps = gst_caps_new_simple(
+            "audio/x-raw",
+            "format", G_TYPE_STRING, "S16LE",
+            "rate", G_TYPE_INT, 48000,
+            "channels", G_TYPE_INT, 1,
+            NULL);
+
+        g_object_set(aes67CapsFilter, "caps", aes67Caps, NULL);
+        gst_caps_unref(aes67Caps);
+
+        g_object_set(
             aes67Sink,
-            "new-sample",
-            G_CALLBACK(OnNewSample),
-            nullptr);
+            "emit-signals", FALSE,
+            "sync", FALSE,
+            "max-buffers", 10,
+            "drop", TRUE,
+            NULL);
 
         GstElement* audioBin = gst_bin_new(nullptr);
         if (!audioBin)
@@ -263,6 +218,9 @@ namespace aes67::gst
             localQueue,
             localSink,
             aes67Queue,
+            aes67Convert,
+            aes67Resample,
+            aes67CapsFilter,
             aes67Sink,
             NULL);
 
@@ -286,7 +244,7 @@ namespace aes67::gst
             return false;
         }
 
-        if (!gst_element_link_many(aes67Queue, aes67Sink, NULL))
+        if (!gst_element_link_many(aes67Queue, aes67Convert, aes67Resample, aes67CapsFilter, aes67Sink, NULL))
         {
             _lastError = "Failed to link AES67 appsink branch.";
             aes67::infra::Logger::Error(_lastError.c_str());
