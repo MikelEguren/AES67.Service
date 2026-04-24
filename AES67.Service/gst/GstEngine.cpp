@@ -134,7 +134,6 @@ namespace aes67::gst
             _lastError = "Failed to create playbin pipeline.";
             aes67::infra::Logger::Error(_lastError.c_str());
             return false;
-        }  return false;
         }
 
         g_object_set(pipeline, "uri", uri.c_str(), NULL);
