@@ -24,6 +24,7 @@ namespace aes67::gst
 
 #if defined(__linux__)
         std::unordered_map<std::string, void*> _pipelines;
+        std::unordered_map<std::string, void*> _captures;
 #endif
     };
 }

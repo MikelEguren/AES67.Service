@@ -2,8 +2,14 @@
 
 #include "infra/Logger.hpp"
 
+#include <atomic>
+#include <condition_variable>
+#include <deque>
 #include <fstream>
+#include <mutex>
 #include <string>
+#include <thread>
+#include <vector>
 
 #if defined(__linux__)
 #include <gst/gst.h>
@@ -19,6 +25,162 @@ namespace aes67::gst
             std::ifstream file(path);
             return file.good();
         }
+
+#if defined(__linux__)
+        struct CapturedAudioBuffer
+        {
+            std::vector<unsigned char> Data;
+            GstClockTime Pts{ GST_CLOCK_TIME_NONE };
+            GstClockTime Duration{ GST_CLOCK_TIME_NONE };
+        };
+
+        struct SessionCaptureContext
+        {
+            std::string SessionId;
+            std::mutex Mutex;
+            std::condition_variable Condition;
+            std::deque<CapturedAudioBuffer> Queue;
+            std::thread Worker;
+            std::atomic<bool> StopRequested{ false };
+            std::atomic<unsigned long long> ReceivedBuffers{ 0 };
+            std::atomic<unsigned long long> DroppedBuffers{ 0 };
+            bool CapsLogged{ false };
+        };
+
+        void CaptureWorker(SessionCaptureContext* context)
+        {
+            while (true)
+            {
+                CapturedAudioBuffer buffer;
+
+                {
+                    std::unique_lock<std::mutex> lock(context->Mutex);
+
+                    context->Condition.wait(lock, [context]()
+                        {
+                            return context->StopRequested || !context->Queue.empty();
+                        });
+
+                    if (context->StopRequested && context->Queue.empty())
+                    {
+                        break;
+                    }
+
+                    buffer = std::move(context->Queue.front());
+                    context->Queue.pop_front();
+                }
+
+                // Future AES67/RTP packetization goes here.
+            }
+        }
+
+        SessionCaptureContext* CreateCaptureContext(const std::string& sessionId)
+        {
+            SessionCaptureContext* context = new SessionCaptureContext();
+            context->SessionId = sessionId;
+            context->Worker = std::thread(CaptureWorker, context);
+            return context;
+        }
+
+        void StopCaptureContext(SessionCaptureContext* context)
+        {
+            if (!context)
+            {
+                return;
+            }
+
+            context->StopRequested = true;
+            context->Condition.notify_all();
+
+            if (context->Worker.joinable())
+            {
+                context->Worker.join();
+            }
+
+            std::string message =
+                "AES67 capture stopped for session " + context->SessionId +
+                ". received=" + std::to_string(context->ReceivedBuffers.load()) +
+                " dropped=" + std::to_string(context->DroppedBuffers.load());
+
+            aes67::infra::Logger::Info(message.c_str());
+
+            delete context;
+        }
+
+        GstFlowReturn OnNewSample(GstAppSink* sink, gpointer userData)
+        {
+            SessionCaptureContext* context = static_cast<SessionCaptureContext*>(userData);
+            if (!context)
+            {
+                return GST_FLOW_ERROR;
+            }
+
+            GstSample* sample = gst_app_sink_pull_sample(sink);
+            if (!sample)
+            {
+                return GST_FLOW_ERROR;
+            }
+
+            GstCaps* caps = gst_sample_get_caps(sample);
+            if (caps && !context->CapsLogged)
+            {
+                GstStructure* structure = gst_caps_get_structure(caps, 0);
+
+                const gchar* format = gst_structure_get_string(structure, "format");
+
+                int rate = 0;
+                int channels = 0;
+
+                gst_structure_get_int(structure, "rate", &rate);
+                gst_structure_get_int(structure, "channels", &channels);
+
+                std::string msg = "AES67 capture caps for session " +
+                    context->SessionId +
+                    ": format=" + std::string(format ? format : "unknown") +
+                    " rate=" + std::to_string(rate) +
+                    " channels=" + std::to_string(channels);
+
+                aes67::infra::Logger::Info(msg.c_str());
+
+                context->CapsLogged = true;
+            }
+
+            GstBuffer* gstBuffer = gst_sample_get_buffer(sample);
+            if (gstBuffer)
+            {
+                GstMapInfo map;
+                if (gst_buffer_map(gstBuffer, &map, GST_MAP_READ))
+                {
+                    CapturedAudioBuffer captured;
+                    captured.Data.assign(map.data, map.data + map.size);
+                    captured.Pts = GST_BUFFER_PTS(gstBuffer);
+                    captured.Duration = GST_BUFFER_DURATION(gstBuffer);
+
+                    {
+                        std::lock_guard<std::mutex> lock(context->Mutex);
+
+                        constexpr std::size_t MaxQueuedBuffers = 50;
+
+                        if (context->Queue.size() >= MaxQueuedBuffers)
+                        {
+                            context->Queue.pop_front();
+                            ++context->DroppedBuffers;
+                        }
+
+                        context->Queue.push_back(std::move(captured));
+                        ++context->ReceivedBuffers;
+                    }
+
+                    context->Condition.notify_one();
+
+                    gst_buffer_unmap(gstBuffer, &map);
+                }
+            }
+
+            gst_sample_unref(sample);
+            return GST_FLOW_OK;
+        }
+#endif
     }
 
     GstEngine::GstEngine()
@@ -70,6 +232,14 @@ namespace aes67::gst
         }
 
         _pipelines.clear();
+
+        for (auto& entry : _captures)
+        {
+            StopCaptureContext(static_cast<SessionCaptureContext*>(entry.second));
+        }
+
+        _captures.clear();
+
         aes67::infra::Logger::Info("GStreamer shutdown.");
 #else
         aes67::infra::Logger::Info("GStreamer shutdown skipped on this platform.");
@@ -124,6 +294,13 @@ namespace aes67::gst
             _pipelines.erase(existing);
         }
 
+        auto existingCapture = _captures.find(sessionId);
+        if (existingCapture != _captures.end())
+        {
+            StopCaptureContext(static_cast<SessionCaptureContext*>(existingCapture->second));
+            _captures.erase(existingCapture);
+        }
+
         std::string uri = "file://" + path;
         aes67::infra::Logger::Info(("Playback URI: " + uri).c_str());
 
@@ -176,7 +353,7 @@ namespace aes67::gst
 
         g_object_set(
             aes67Queue,
-            "max-size-buffers", 10,
+            "max-size-buffers", 50,
             "max-size-time", 0,
             "max-size-bytes", 0,
             "leaky", 2,
@@ -192,19 +369,31 @@ namespace aes67::gst
         g_object_set(aes67CapsFilter, "caps", aes67Caps, NULL);
         gst_caps_unref(aes67Caps);
 
+        SessionCaptureContext* captureContext = CreateCaptureContext(sessionId);
+        _captures[sessionId] = captureContext;
+
         g_object_set(
             aes67Sink,
-            "emit-signals", FALSE,
+            "emit-signals", TRUE,
             "sync", FALSE,
-            "max-buffers", 10,
+            "max-buffers", 20,
             "drop", TRUE,
             NULL);
+
+        g_signal_connect(
+            aes67Sink,
+            "new-sample",
+            G_CALLBACK(OnNewSample),
+            captureContext);
 
         GstElement* audioBin = gst_bin_new(nullptr);
         if (!audioBin)
         {
             _lastError = "Failed to create audio bin.";
             aes67::infra::Logger::Error(_lastError.c_str());
+
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
 
             gst_object_unref(pipeline);
             return false;
@@ -229,6 +418,9 @@ namespace aes67::gst
             _lastError = "Failed to link audio conversion chain.";
             aes67::infra::Logger::Error(_lastError.c_str());
 
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
+
             gst_object_unref(audioBin);
             gst_object_unref(pipeline);
             return false;
@@ -239,6 +431,9 @@ namespace aes67::gst
             _lastError = "Failed to link local audio branch.";
             aes67::infra::Logger::Error(_lastError.c_str());
 
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
+
             gst_object_unref(audioBin);
             gst_object_unref(pipeline);
             return false;
@@ -248,6 +443,9 @@ namespace aes67::gst
         {
             _lastError = "Failed to link AES67 appsink branch.";
             aes67::infra::Logger::Error(_lastError.c_str());
+
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
 
             gst_object_unref(audioBin);
             gst_object_unref(pipeline);
@@ -264,6 +462,9 @@ namespace aes67::gst
 
             if (teeLocalPad) gst_object_unref(teeLocalPad);
             if (localQueueSinkPad) gst_object_unref(localQueueSinkPad);
+
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
 
             gst_object_unref(audioBin);
             gst_object_unref(pipeline);
@@ -284,6 +485,9 @@ namespace aes67::gst
             if (teeAes67Pad) gst_object_unref(teeAes67Pad);
             if (aes67QueueSinkPad) gst_object_unref(aes67QueueSinkPad);
 
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
+
             gst_object_unref(audioBin);
             gst_object_unref(pipeline);
             return false;
@@ -298,6 +502,9 @@ namespace aes67::gst
             _lastError = "Failed to get audioConvert sink pad.";
             aes67::infra::Logger::Error(_lastError.c_str());
 
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
+
             gst_object_unref(audioBin);
             gst_object_unref(pipeline);
             return false;
@@ -311,6 +518,9 @@ namespace aes67::gst
             _lastError = "Failed to create audio bin ghost pad.";
             aes67::infra::Logger::Error(_lastError.c_str());
 
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
+
             gst_object_unref(audioBin);
             gst_object_unref(pipeline);
             return false;
@@ -322,6 +532,10 @@ namespace aes67::gst
             aes67::infra::Logger::Error(_lastError.c_str());
 
             gst_object_unref(ghostPad);
+
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
+
             gst_object_unref(audioBin);
             gst_object_unref(pipeline);
             return false;
@@ -377,6 +591,10 @@ namespace aes67::gst
             }
 
             aes67::infra::Logger::Error(_lastError.c_str());
+
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
+
             gst_object_unref(pipeline);
             return false;
         }
@@ -409,6 +627,13 @@ namespace aes67::gst
         }
 
         _pipelines.erase(existing);
+
+        auto existingCapture = _captures.find(sessionId);
+        if (existingCapture != _captures.end())
+        {
+            StopCaptureContext(static_cast<SessionCaptureContext*>(existingCapture->second));
+            _captures.erase(existingCapture);
+        }
 
         aes67::infra::Logger::Info(("Playback stopped for session " + sessionId + ".").c_str());
         return true;
