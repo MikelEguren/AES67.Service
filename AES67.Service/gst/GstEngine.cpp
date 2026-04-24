@@ -21,12 +21,38 @@ namespace aes67::gst
         }
 
 #if defined(__linux__)
-        GstFlowReturn OnNewSample(GstAppSink* sink, gpointer userData)
+        GstFlowReturn OnNewSample(GstAppSink* sink, gpointer user_data)
         {
+            static bool loggedCaps = false;
+
             GstSample* sample = gst_app_sink_pull_sample(sink);
             if (!sample)
             {
                 return GST_FLOW_ERROR;
+            }
+
+            GstCaps* caps = gst_sample_get_caps(sample);
+
+            if (caps && !loggedCaps)
+            {
+                GstStructure* structure = gst_caps_get_structure(caps, 0);
+
+                const gchar* format = gst_structure_get_string(structure, "format");
+
+                int rate = 0;
+                int channels = 0;
+
+                gst_structure_get_int(structure, "rate", &rate);
+                gst_structure_get_int(structure, "channels", &channels);
+
+                std::string msg = "Audio caps: format=" +
+                    std::string(format ? format : "unknown") +
+                    " rate=" + std::to_string(rate) +
+                    " channels=" + std::to_string(channels);
+
+                aes67::infra::Logger::Info(msg.c_str());
+
+                loggedCaps = true;
             }
 
             GstBuffer* buffer = gst_sample_get_buffer(sample);
@@ -35,9 +61,9 @@ namespace aes67::gst
                 GstMapInfo map;
                 if (gst_buffer_map(buffer, &map, GST_MAP_READ))
                 {
-                    // Aquí tenemos audio real:
-                    // map.data -> bytes PCM
-                    // map.size -> tamaño del buffer
+                    // Aquí tienes audio real
+                    // map.data → puntero a muestras
+                    // map.size → tamaño en bytes
 
                     gst_buffer_unmap(buffer, &map);
                 }
