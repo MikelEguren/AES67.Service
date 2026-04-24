@@ -7,9 +7,6 @@
 
 #if defined(__linux__)
 #include <gst/gst.h>
-#endif
-
-#if defined(__linux__)
 #include <gst/app/gstappsink.h>
 #endif
 
@@ -22,6 +19,34 @@ namespace aes67::gst
             std::ifstream file(path);
             return file.good();
         }
+
+#if defined(__linux__)
+        GstFlowReturn OnNewSample(GstAppSink* sink, gpointer userData)
+        {
+            GstSample* sample = gst_app_sink_pull_sample(sink);
+            if (!sample)
+            {
+                return GST_FLOW_ERROR;
+            }
+
+            GstBuffer* buffer = gst_sample_get_buffer(sample);
+            if (buffer)
+            {
+                GstMapInfo map;
+                if (gst_buffer_map(buffer, &map, GST_MAP_READ))
+                {
+                    // Aquí tenemos audio real:
+                    // map.data -> bytes PCM
+                    // map.size -> tamaño del buffer
+
+                    gst_buffer_unmap(buffer, &map);
+                }
+            }
+
+            gst_sample_unref(sample);
+            return GST_FLOW_OK;
+        }
+#endif
     }
 
     GstEngine::GstEngine()
@@ -31,36 +56,6 @@ namespace aes67::gst
     {
         Shutdown();
     }
-
-#if defined(__linux__)
-    GstFlowReturn OnNewSample(GstAppSink* sink, gpointer user_data)
-    {
-        GstSample* sample = gst_app_sink_pull_sample(sink);
-        if (!sample)
-        {
-            return GST_FLOW_ERROR;
-        }
-
-        GstBuffer* buffer = gst_sample_get_buffer(sample);
-        if (buffer)
-        {
-            GstMapInfo map;
-            if (gst_buffer_map(buffer, &map, GST_MAP_READ))
-            {
-                // 🔥 AQUÍ tendrás el audio real (map.data, map.size)
-
-                // Por ahora solo log mínimo
-                // (no metas mucho logging aquí o petas rendimiento)
-                // printf("Audio sample size: %zu\n", map.size);
-
-                gst_buffer_unmap(buffer, &map);
-            }
-        }
-
-        gst_sample_unref(sample);
-        return GST_FLOW_OK;
-    }
-#endif
 
     bool GstEngine::Initialize()
     {
@@ -182,15 +177,6 @@ namespace aes67::gst
         GstElement* aes67Queue = gst_element_factory_make("queue", nullptr);
         GstElement* aes67Sink = gst_element_factory_make("appsink", nullptr);
 
-        g_object_set(aes67Sink,
-            "emit-signals", TRUE,
-            "sync", FALSE,
-            NULL);
-
-#if defined(__linux__)
-        g_signal_connect(aes67Sink, "new-sample", G_CALLBACK(OnNewSample), nullptr);
-#endif
-
         if (!audioConvert || !audioResample || !tee || !localQueue || !localSink || !aes67Queue || !aes67Sink)
         {
             _lastError = "Failed to create tee audio output elements.";
@@ -208,7 +194,27 @@ namespace aes67::gst
             return false;
         }
 
+        g_object_set(
+            aes67Sink,
+            "emit-signals", TRUE,
+            "sync", FALSE,
+            NULL);
+
+        g_signal_connect(
+            aes67Sink,
+            "new-sample",
+            G_CALLBACK(OnNewSample),
+            nullptr);
+
         GstElement* audioBin = gst_bin_new(nullptr);
+        if (!audioBin)
+        {
+            _lastError = "Failed to create audio bin.";
+            aes67::infra::Logger::Error(_lastError.c_str());
+
+            gst_object_unref(pipeline);
+            return false;
+        }
 
         gst_bin_add_many(
             GST_BIN(audioBin),
@@ -243,7 +249,7 @@ namespace aes67::gst
 
         if (!gst_element_link_many(aes67Queue, aes67Sink, NULL))
         {
-            _lastError = "Failed to link AES67 placeholder branch.";
+            _lastError = "Failed to link AES67 appsink branch.";
             aes67::infra::Logger::Error(_lastError.c_str());
 
             gst_object_unref(audioBin);
@@ -275,7 +281,7 @@ namespace aes67::gst
 
         if (!teeAes67Pad || !aes67QueueSinkPad || gst_pad_link(teeAes67Pad, aes67QueueSinkPad) != GST_PAD_LINK_OK)
         {
-            _lastError = "Failed to link tee to AES67 placeholder branch.";
+            _lastError = "Failed to link tee to AES67 appsink branch.";
             aes67::infra::Logger::Error(_lastError.c_str());
 
             if (teeAes67Pad) gst_object_unref(teeAes67Pad);
@@ -290,10 +296,39 @@ namespace aes67::gst
         gst_object_unref(aes67QueueSinkPad);
 
         GstPad* sinkPad = gst_element_get_static_pad(audioConvert, "sink");
+        if (!sinkPad)
+        {
+            _lastError = "Failed to get audioConvert sink pad.";
+            aes67::infra::Logger::Error(_lastError.c_str());
+
+            gst_object_unref(audioBin);
+            gst_object_unref(pipeline);
+            return false;
+        }
+
         GstPad* ghostPad = gst_ghost_pad_new("sink", sinkPad);
         gst_object_unref(sinkPad);
 
-        gst_element_add_pad(audioBin, ghostPad);
+        if (!ghostPad)
+        {
+            _lastError = "Failed to create audio bin ghost pad.";
+            aes67::infra::Logger::Error(_lastError.c_str());
+
+            gst_object_unref(audioBin);
+            gst_object_unref(pipeline);
+            return false;
+        }
+
+        if (!gst_element_add_pad(audioBin, ghostPad))
+        {
+            _lastError = "Failed to add ghost pad to audio bin.";
+            aes67::infra::Logger::Error(_lastError.c_str());
+
+            gst_object_unref(ghostPad);
+            gst_object_unref(audioBin);
+            gst_object_unref(pipeline);
+            return false;
+        }
 
         g_object_set(pipeline, "audio-sink", audioBin, NULL);
 
