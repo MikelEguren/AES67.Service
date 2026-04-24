@@ -140,16 +140,26 @@ namespace aes67::gst
 
         GstElement* audioConvert = gst_element_factory_make("audioconvert", nullptr);
         GstElement* audioResample = gst_element_factory_make("audioresample", nullptr);
-        GstElement* audioSink = gst_element_factory_make("autoaudiosink", nullptr);
+        GstElement* tee = gst_element_factory_make("tee", nullptr);
 
-        if (!audioConvert || !audioResample || !audioSink)
+        GstElement* localQueue = gst_element_factory_make("queue", nullptr);
+        GstElement* localSink = gst_element_factory_make("autoaudiosink", nullptr);
+
+        GstElement* aes67Queue = gst_element_factory_make("queue", nullptr);
+        GstElement* aes67Sink = gst_element_factory_make("fakesink", nullptr);
+
+        if (!audioConvert || !audioResample || !tee || !localQueue || !localSink || !aes67Queue || !aes67Sink)
         {
-            _lastError = "Failed to create audio output elements.";
+            _lastError = "Failed to create tee audio output elements.";
             aes67::infra::Logger::Error(_lastError.c_str());
 
             if (audioConvert) gst_object_unref(audioConvert);
             if (audioResample) gst_object_unref(audioResample);
-            if (audioSink) gst_object_unref(audioSink);
+            if (tee) gst_object_unref(tee);
+            if (localQueue) gst_object_unref(localQueue);
+            if (localSink) gst_object_unref(localSink);
+            if (aes67Queue) gst_object_unref(aes67Queue);
+            if (aes67Sink) gst_object_unref(aes67Sink);
 
             gst_object_unref(pipeline);
             return false;
@@ -161,18 +171,80 @@ namespace aes67::gst
             GST_BIN(audioBin),
             audioConvert,
             audioResample,
-            audioSink,
+            tee,
+            localQueue,
+            localSink,
+            aes67Queue,
+            aes67Sink,
             NULL);
 
-        if (!gst_element_link_many(audioConvert, audioResample, audioSink, NULL))
+        if (!gst_element_link_many(audioConvert, audioResample, tee, NULL))
         {
-            _lastError = "Failed to link audio output elements.";
+            _lastError = "Failed to link audio conversion chain.";
             aes67::infra::Logger::Error(_lastError.c_str());
 
             gst_object_unref(audioBin);
             gst_object_unref(pipeline);
             return false;
         }
+
+        if (!gst_element_link_many(localQueue, localSink, NULL))
+        {
+            _lastError = "Failed to link local audio branch.";
+            aes67::infra::Logger::Error(_lastError.c_str());
+
+            gst_object_unref(audioBin);
+            gst_object_unref(pipeline);
+            return false;
+        }
+
+        if (!gst_element_link_many(aes67Queue, aes67Sink, NULL))
+        {
+            _lastError = "Failed to link AES67 placeholder branch.";
+            aes67::infra::Logger::Error(_lastError.c_str());
+
+            gst_object_unref(audioBin);
+            gst_object_unref(pipeline);
+            return false;
+        }
+
+        GstPad* teeLocalPad = gst_element_request_pad_simple(tee, "src_%u");
+        GstPad* localQueueSinkPad = gst_element_get_static_pad(localQueue, "sink");
+
+        if (!teeLocalPad || !localQueueSinkPad || gst_pad_link(teeLocalPad, localQueueSinkPad) != GST_PAD_LINK_OK)
+        {
+            _lastError = "Failed to link tee to local audio branch.";
+            aes67::infra::Logger::Error(_lastError.c_str());
+
+            if (teeLocalPad) gst_object_unref(teeLocalPad);
+            if (localQueueSinkPad) gst_object_unref(localQueueSinkPad);
+
+            gst_object_unref(audioBin);
+            gst_object_unref(pipeline);
+            return false;
+        }
+
+        gst_object_unref(teeLocalPad);
+        gst_object_unref(localQueueSinkPad);
+
+        GstPad* teeAes67Pad = gst_element_request_pad_simple(tee, "src_%u");
+        GstPad* aes67QueueSinkPad = gst_element_get_static_pad(aes67Queue, "sink");
+
+        if (!teeAes67Pad || !aes67QueueSinkPad || gst_pad_link(teeAes67Pad, aes67QueueSinkPad) != GST_PAD_LINK_OK)
+        {
+            _lastError = "Failed to link tee to AES67 placeholder branch.";
+            aes67::infra::Logger::Error(_lastError.c_str());
+
+            if (teeAes67Pad) gst_object_unref(teeAes67Pad);
+            if (aes67QueueSinkPad) gst_object_unref(aes67QueueSinkPad);
+
+            gst_object_unref(audioBin);
+            gst_object_unref(pipeline);
+            return false;
+        }
+
+        gst_object_unref(teeAes67Pad);
+        gst_object_unref(aes67QueueSinkPad);
 
         GstPad* sinkPad = gst_element_get_static_pad(audioConvert, "sink");
         GstPad* ghostPad = gst_ghost_pad_new("sink", sinkPad);
