@@ -9,6 +9,10 @@
 #include <gst/gst.h>
 #endif
 
+#if defined(__linux__)
+#include <gst/app/gstappsink.h>
+#endif
+
 namespace aes67::gst
 {
     namespace
@@ -27,6 +31,36 @@ namespace aes67::gst
     {
         Shutdown();
     }
+
+#if defined(__linux__)
+    GstFlowReturn OnNewSample(GstAppSink* sink, gpointer user_data)
+    {
+        GstSample* sample = gst_app_sink_pull_sample(sink);
+        if (!sample)
+        {
+            return GST_FLOW_ERROR;
+        }
+
+        GstBuffer* buffer = gst_sample_get_buffer(sample);
+        if (buffer)
+        {
+            GstMapInfo map;
+            if (gst_buffer_map(buffer, &map, GST_MAP_READ))
+            {
+                // 🔥 AQUÍ tendrás el audio real (map.data, map.size)
+
+                // Por ahora solo log mínimo
+                // (no metas mucho logging aquí o petas rendimiento)
+                // printf("Audio sample size: %zu\n", map.size);
+
+                gst_buffer_unmap(buffer, &map);
+            }
+        }
+
+        gst_sample_unref(sample);
+        return GST_FLOW_OK;
+    }
+#endif
 
     bool GstEngine::Initialize()
     {
@@ -146,7 +180,16 @@ namespace aes67::gst
         GstElement* localSink = gst_element_factory_make("autoaudiosink", nullptr);
 
         GstElement* aes67Queue = gst_element_factory_make("queue", nullptr);
-        GstElement* aes67Sink = gst_element_factory_make("fakesink", nullptr);
+        GstElement* aes67Sink = gst_element_factory_make("appsink", nullptr);
+
+        g_object_set(aes67Sink,
+            "emit-signals", TRUE,
+            "sync", FALSE,
+            NULL);
+
+#if defined(__linux__)
+        g_signal_connect(aes67Sink, "new-sample", G_CALLBACK(OnNewSample), nullptr);
+#endif
 
         if (!audioConvert || !audioResample || !tee || !localQueue || !localSink || !aes67Queue || !aes67Sink)
         {
