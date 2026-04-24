@@ -203,6 +203,17 @@ namespace aes67::gst
         GstElement* aes67Queue = gst_element_factory_make("queue", nullptr);
         GstElement* aes67Sink = gst_element_factory_make("appsink", nullptr);
 
+        if (aes67Queue)
+        {
+            g_object_set(
+                aes67Queue,
+                "max-size-buffers", 2,
+                "max-size-time", 0,
+                "max-size-bytes", 0,
+                "leaky", 2,
+                NULL);
+        }
+
         if (!audioConvert || !audioResample || !tee || !localQueue || !localSink || !aes67Queue || !aes67Sink)
         {
             _lastError = "Failed to create tee audio output elements.";
@@ -224,6 +235,8 @@ namespace aes67::gst
             aes67Sink,
             "emit-signals", TRUE,
             "sync", FALSE,
+            "max-buffers", 2,
+            "drop", TRUE,
             NULL);
 
         g_signal_connect(
