@@ -108,7 +108,7 @@ namespace aes67::gst
                 << "c=IN IP4 " << multicastIp << "/127\n"
                 << "t=0 0\n"
                 << "m=audio " << port << " RTP/AVP 10\n"
-                << "a=rtpmap:10 L16/48000/2\n"
+                << "a=rtpmap:10 L16/48000/1\n"
                 << "a=sendonly\n"
                 << "a=ptime:5\n"
                 << "a=source-filter: incl IN IP4 " << multicastIp << " 192.168.0.74\n"
