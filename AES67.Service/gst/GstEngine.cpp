@@ -363,7 +363,7 @@ namespace aes67::gst
                     {
                         std::lock_guard<std::mutex> lock(context->Mutex);
 
-                        constexpr std::size_t MaxQueuedBuffers = 50;
+                        constexpr std::size_t MaxQueuedBuffers = 1000;
 
                         if (context->Queue.size() >= MaxQueuedBuffers)
                         {
@@ -572,7 +572,7 @@ namespace aes67::gst
             aes67Sink,
             "emit-signals", TRUE,
             "sync", TRUE,
-            "max-buffers", 50,
+            "max-buffers", 1000,
             "drop", TRUE,
             NULL);
 
