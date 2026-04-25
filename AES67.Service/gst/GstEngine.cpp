@@ -13,6 +13,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <fstream>
 
 #if defined(__linux__)
 #include <arpa/inet.h>
@@ -64,7 +65,7 @@ namespace aes67::gst
             packet.resize(12 + payload.size());
 
             packet[0] = 0x80;
-            packet[1] = 10;
+            packet[1] = 96;
 
             packet[2] = static_cast<unsigned char>((sequenceNumber >> 8) & 0xFF);
             packet[3] = static_cast<unsigned char>(sequenceNumber & 0xFF);
@@ -106,6 +107,7 @@ namespace aes67::gst
             std::atomic<unsigned long long> SendErrors{ 0 };
 
             std::vector<unsigned char> PendingPcmBytes;
+            std::ofstream DebugRawFile;
 
             std::uint16_t RtpSequenceNumber{ 0 };
             std::uint32_t RtpTimestamp{ 0 };
@@ -170,6 +172,13 @@ namespace aes67::gst
                     context->PendingPcmBytes.erase(
                         context->PendingPcmBytes.begin(),
                         context->PendingPcmBytes.begin() + BytesPerFrame);
+
+                    if (context->DebugRawFile.is_open())
+                    {
+                        context->DebugRawFile.write(
+                            reinterpret_cast<const char*>(frame.Data.data()),
+                            static_cast<std::streamsize>(frame.Data.size()));
+                    }
 
                     RtpPacketInfo packet;
                     packet.SequenceNumber = context->RtpSequenceNumber++;
@@ -256,6 +265,18 @@ namespace aes67::gst
             context->SessionId = sessionId;
             context->PacketTimeMs = packetTimeMs;
 
+            std::string debugPath = "/tmp/aes67_capture_" + sessionId + ".raw";
+            context->DebugRawFile.open(debugPath, std::ios::binary);
+
+            if (context->DebugRawFile.is_open())
+            {
+                aes67::infra::Logger::Info(("AES67 debug RAW file: " + debugPath).c_str());
+            }
+            else
+            {
+                aes67::infra::Logger::Error("Failed to open AES67 debug RAW file.");
+            }
+
             context->SocketFd = socket(AF_INET, SOCK_DGRAM, 0);
             if (context->SocketFd < 0)
             {
@@ -306,6 +327,10 @@ namespace aes67::gst
             {
                 close(context->SocketFd);
                 context->SocketFd = -1;
+            }
+            if (context->DebugRawFile.is_open())
+            {
+                context->DebugRawFile.close();
             }
 
             delete context;
