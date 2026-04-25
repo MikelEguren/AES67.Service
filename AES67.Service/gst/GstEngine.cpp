@@ -316,7 +316,7 @@ namespace aes67::gst
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime);
 
-                iif(elapsed.count() >= 1)
+                if(elapsed.count() >= 1)
                 {
                     long long scheduledMs = 0;
                     long long actualMs = 0;
