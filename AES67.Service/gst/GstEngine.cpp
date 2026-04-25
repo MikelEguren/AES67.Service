@@ -127,6 +127,9 @@ namespace aes67::gst
                 return;
             }
 
+            unsigned char ttl = 16;
+            setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl));
+
             sockaddr_in addr{};
             addr.sin_family = AF_INET;
             addr.sin_port = htons(9875);
@@ -134,21 +137,37 @@ namespace aes67::gst
 
             std::vector<unsigned char> packet;
 
+            // SAP v1, IPv4, no auth, no encryption, no compression
             packet.push_back(0x20);
             packet.push_back(0x00);
-            packet.push_back(0x00);
-            packet.push_back(0x01);
+
+            // Message ID hash
+            std::uint16_t messageId = static_cast<std::uint16_t>(BuildSsrcFromSessionId(sessionId) & 0xFFFF);
+            packet.push_back(static_cast<unsigned char>((messageId >> 8) & 0xFF));
+            packet.push_back(static_cast<unsigned char>(messageId & 0xFF));
+
+            // Originating source IPv4 address.
+            // De momento 0.0.0.0; si Dante no lo acepta, siguiente ajuste será poner la IP real de la NIC.
             packet.insert(packet.end(), { 0, 0, 0, 0 });
+
+            const std::string contentType = "application/sdp";
+            packet.insert(packet.end(), contentType.begin(), contentType.end());
+            packet.push_back('\0');
 
             packet.insert(packet.end(), sdpContent.begin(), sdpContent.end());
 
-            sendto(
+            const ssize_t sentBytes = sendto(
                 sock,
                 packet.data(),
                 packet.size(),
                 0,
                 reinterpret_cast<sockaddr*>(&addr),
                 sizeof(addr));
+
+            if (sentBytes < 0)
+            {
+                aes67::infra::Logger::Error("SAP announcement send failed.");
+            }
 
             close(sock);
         }
