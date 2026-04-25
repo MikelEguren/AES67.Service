@@ -42,7 +42,7 @@ namespace aes67::gst
         struct SessionCaptureContext
         {
             std::string SessionId;
-			int PacketTimeMs{ 5 }; // Tiempo de paquete AES67 en milisegundos.  esto es un Fallback a 5 ms si no se establece explícitamente en congig.
+			int PacketTimeMs{ 5 };  //Fallback default, will be updated based on serviceConfig info
 
             std::mutex Mutex;
             std::condition_variable Condition;
@@ -51,6 +51,9 @@ namespace aes67::gst
             std::atomic<bool> StopRequested{ false };
             std::atomic<unsigned long long> ReceivedBuffers{ 0 };
             std::atomic<unsigned long long> DroppedBuffers{ 0 };
+
+            std::vector<unsigned char> PendingPcmBytes;
+
             bool CapsLogged{ false };
         };
 
