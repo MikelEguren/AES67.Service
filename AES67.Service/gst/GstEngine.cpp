@@ -480,23 +480,29 @@ namespace aes67::gst
             return false;
         }
 
-        GstPad* teeLocalPad = gst_element_request_pad_simple(tee, "src_%u");
-        GstPad* localQueueSinkPad = gst_element_get_static_pad(localQueue, "sink");
-
-        if (!teeLocalPad || !localQueueSinkPad || gst_pad_link(teeLocalPad, localQueueSinkPad) != GST_PAD_LINK_OK)
+        if (enableLocalMonitor)
         {
-            _lastError = "Failed to link tee to local audio branch.";
-            aes67::infra::Logger::Error(_lastError.c_str());
+            GstPad* teeLocalPad = gst_element_request_pad_simple(tee, "src_%u");
+            GstPad* localQueueSinkPad = gst_element_get_static_pad(localQueue, "sink");
 
-            if (teeLocalPad) gst_object_unref(teeLocalPad);
-            if (localQueueSinkPad) gst_object_unref(localQueueSinkPad);
+            if (!teeLocalPad || !localQueueSinkPad || gst_pad_link(teeLocalPad, localQueueSinkPad) != GST_PAD_LINK_OK)
+            {
+                _lastError = "Failed to link tee to local audio branch.";
+                aes67::infra::Logger::Error(_lastError.c_str());
 
-            StopCaptureContext(captureContext);
-            _captures.erase(sessionId);
+                if (teeLocalPad) gst_object_unref(teeLocalPad);
+                if (localQueueSinkPad) gst_object_unref(localQueueSinkPad);
 
-            gst_object_unref(audioBin);
-            gst_object_unref(pipeline);
-            return false;
+                StopCaptureContext(captureContext);
+                _captures.erase(sessionId);
+
+                gst_object_unref(audioBin);
+                gst_object_unref(pipeline);
+                return false;
+            }
+
+            gst_object_unref(teeLocalPad);
+            gst_object_unref(localQueueSinkPad);
         }
 
         gst_object_unref(teeLocalPad);
