@@ -107,8 +107,8 @@ namespace aes67::gst
                 << "s=AES67 Service " << sessionId << "\n"
                 << "c=IN IP4 " << multicastIp << "/127\n"
                 << "t=0 0\n"
-                << "m=audio " << port << " RTP/AVP 96\n"
-                << "a=rtpmap:96 L16/48000/1\n"
+                << "m=audio 5004 RTP/AVP 10"  << port << " RTP/AVP 96\n"
+                << "a=rtpmap:10 L16/48000/2\n"
                 << "a=sendonly\n"
                 << "a=ptime:5\n"
                 << "a=source-filter: incl IN IP4 " << multicastIp << " 192.168.0.74\n"
@@ -186,7 +186,7 @@ namespace aes67::gst
             packet.resize(12 + payload.size());
 
             packet[0] = 0x80;
-            packet[1] = 96;
+            packet[1] = 10;
 
             packet[2] = static_cast<unsigned char>((sequenceNumber >> 8) & 0xFF);
             packet[3] = static_cast<unsigned char>(sequenceNumber & 0xFF);
