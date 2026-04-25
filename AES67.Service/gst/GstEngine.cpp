@@ -5,13 +5,13 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <deque>
 #include <fstream>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
-#include <cstdint>
 
 #if defined(__linux__)
 #include <gst/gst.h>
@@ -35,10 +35,12 @@ namespace aes67::gst
             GstClockTime Pts{ GST_CLOCK_TIME_NONE };
             GstClockTime Duration{ GST_CLOCK_TIME_NONE };
         };
+
         struct Aes67PcmFrame
         {
             std::vector<unsigned char> Data;
         };
+
         struct RtpPacketInfo
         {
             std::uint16_t SequenceNumber{ 0 };
@@ -50,15 +52,18 @@ namespace aes67::gst
         struct SessionCaptureContext
         {
             std::string SessionId;
-			int PacketTimeMs{ 5 };  //Fallback default, will be updated based on serviceConfig info
+            int PacketTimeMs{ 0 };
 
             std::mutex Mutex;
             std::condition_variable Condition;
             std::deque<CapturedAudioBuffer> Queue;
             std::thread Worker;
+
             std::atomic<bool> StopRequested{ false };
             std::atomic<unsigned long long> ReceivedBuffers{ 0 };
             std::atomic<unsigned long long> DroppedBuffers{ 0 };
+            std::atomic<unsigned long long> PreparedRtpPackets{ 0 };
+            std::atomic<unsigned long long> PreparedPayloadBytes{ 0 };
 
             std::vector<unsigned char> PendingPcmBytes;
 
@@ -72,8 +77,8 @@ namespace aes67::gst
         void CaptureWorker(SessionCaptureContext* context)
         {
             auto lastLogTime = std::chrono::steady_clock::now();
-            std::size_t bytesAccumulated = 0;
-            std::size_t buffersAccumulated = 0;
+            std::size_t payloadBytesAccumulated = 0;
+            std::size_t packetsAccumulated = 0;
 
             while (true)
             {
@@ -96,9 +101,6 @@ namespace aes67::gst
                     context->Queue.pop_front();
                 }
 
-                bytesAccumulated += buffer.Data.size();
-                ++buffersAccumulated;
-
                 const int safePacketTimeMs =
                     context->PacketTimeMs <= 0 ? 5 : context->PacketTimeMs;
 
@@ -116,13 +118,15 @@ namespace aes67::gst
                     buffer.Data.begin(),
                     buffer.Data.end());
 
-                std::size_t framesBuilt = 0;
-
                 while (context->PendingPcmBytes.size() >= BytesPerFrame)
                 {
                     Aes67PcmFrame frame;
                     frame.Data.insert(
                         frame.Data.end(),
+                        context->PendingPcmBytes.begin(),
+                        context->PendingPcmBytes.begin() + BytesPerFrame);
+
+                    context->PendingPcmBytes.erase(
                         context->PendingPcmBytes.begin(),
                         context->PendingPcmBytes.begin() + BytesPerFrame);
 
@@ -134,17 +138,14 @@ namespace aes67::gst
 
                     context->RtpTimestamp += static_cast<std::uint32_t>(SamplesPerFrame);
 
-                    context->PendingPcmBytes.erase(
-                        context->PendingPcmBytes.begin(),
-                        context->PendingPcmBytes.begin() + BytesPerFrame);
+                    ++context->PreparedRtpPackets;
+                    context->PreparedPayloadBytes += packet.PayloadBytes;
 
-                    ++framesBuilt;
+                    ++packetsAccumulated;
+                    payloadBytesAccumulated += packet.PayloadBytes;
 
-                    // Aquí irá RTP: cada frame equivale a 1 ms de audio PCM L16 48k mono.
+                    // Future UDP/RTP send goes here.
                 }
-
-                bytesAccumulated += buffer.Data.size();
-                buffersAccumulated += framesBuilt;
 
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime);
@@ -154,14 +155,14 @@ namespace aes67::gst
                     std::string msg =
                         "AES67 RTP prepared [" + context->SessionId + "] " +
                         "packetTimeMs=" + std::to_string(safePacketTimeMs) +
-                        " packets=" + std::to_string(buffersAccumulated) +
-                        " payloadBytes=" + std::to_string(bytesAccumulated) +
+                        " packets=" + std::to_string(packetsAccumulated) +
+                        " payloadBytes=" + std::to_string(payloadBytesAccumulated) +
                         " timestampStep=" + std::to_string(SamplesPerFrame);
 
                     aes67::infra::Logger::Info(msg.c_str());
 
-                    bytesAccumulated = 0;
-                    buffersAccumulated = 0;
+                    payloadBytesAccumulated = 0;
+                    packetsAccumulated = 0;
                     lastLogTime = now;
                 }
             }
@@ -195,7 +196,9 @@ namespace aes67::gst
                 "AES67 capture stopped for session " + context->SessionId +
                 ". packetTimeMs=" + std::to_string(context->PacketTimeMs) +
                 " received=" + std::to_string(context->ReceivedBuffers.load()) +
-                " dropped=" + std::to_string(context->DroppedBuffers.load());
+                " dropped=" + std::to_string(context->DroppedBuffers.load()) +
+                " rtpPackets=" + std::to_string(context->PreparedRtpPackets.load()) +
+                " rtpPayloadBytes=" + std::to_string(context->PreparedPayloadBytes.load());
 
             aes67::infra::Logger::Info(message.c_str());
 
