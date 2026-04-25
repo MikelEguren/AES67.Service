@@ -172,7 +172,8 @@ namespace aes67::gst
 
             std::string message =
                 "AES67 capture stopped for session " + context->SessionId +
-                ". received=" + std::to_string(context->ReceivedBuffers.load()) +
+                ". packetTimeMs=" + std::to_string(context->PacketTimeMs) +
+                " received=" + std::to_string(context->ReceivedBuffers.load()) +
                 " dropped=" + std::to_string(context->DroppedBuffers.load());
 
             aes67::infra::Logger::Info(message.c_str());
