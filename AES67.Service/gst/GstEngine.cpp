@@ -11,6 +11,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <cstdint>
 
 #if defined(__linux__)
 #include <gst/gst.h>
@@ -38,6 +39,13 @@ namespace aes67::gst
         {
             std::vector<unsigned char> Data;
         };
+        struct RtpPacketInfo
+        {
+            std::uint16_t SequenceNumber{ 0 };
+            std::uint32_t Timestamp{ 0 };
+            std::uint32_t Ssrc{ 0 };
+            std::size_t PayloadBytes{ 0 };
+        };
 
         struct SessionCaptureContext
         {
@@ -53,6 +61,10 @@ namespace aes67::gst
             std::atomic<unsigned long long> DroppedBuffers{ 0 };
 
             std::vector<unsigned char> PendingPcmBytes;
+
+            std::uint16_t RtpSequenceNumber{ 0 };
+            std::uint32_t RtpTimestamp{ 0 };
+            std::uint32_t RtpSsrc{ 0x12345678 };
 
             bool CapsLogged{ false };
         };
@@ -114,6 +126,14 @@ namespace aes67::gst
                         context->PendingPcmBytes.begin(),
                         context->PendingPcmBytes.begin() + BytesPerFrame);
 
+                    RtpPacketInfo packet;
+                    packet.SequenceNumber = context->RtpSequenceNumber++;
+                    packet.Timestamp = context->RtpTimestamp;
+                    packet.Ssrc = context->RtpSsrc;
+                    packet.PayloadBytes = frame.Data.size();
+
+                    context->RtpTimestamp += static_cast<std::uint32_t>(SamplesPerFrame);
+
                     context->PendingPcmBytes.erase(
                         context->PendingPcmBytes.begin(),
                         context->PendingPcmBytes.begin() + BytesPerFrame);
@@ -132,10 +152,11 @@ namespace aes67::gst
                 if (elapsed.count() >= 1)
                 {
                     std::string msg =
-                        "AES67 stream [" + context->SessionId + "] " +
+                        "AES67 RTP prepared [" + context->SessionId + "] " +
                         "packetTimeMs=" + std::to_string(safePacketTimeMs) +
-                        " frames=" + std::to_string(buffersAccumulated) +
-                        " bytes=" + std::to_string(bytesAccumulated);
+                        " packets=" + std::to_string(buffersAccumulated) +
+                        " payloadBytes=" + std::to_string(bytesAccumulated) +
+                        " timestampStep=" + std::to_string(SamplesPerFrame);
 
                     aes67::infra::Logger::Info(msg.c_str());
 
