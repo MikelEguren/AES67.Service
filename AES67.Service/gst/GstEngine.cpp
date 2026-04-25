@@ -14,7 +14,6 @@
 #include <thread>
 #include <vector>
 
-
 #if defined(__linux__)
 #include <arpa/inet.h>
 #include <gst/gst.h>
@@ -113,6 +112,10 @@ namespace aes67::gst
             std::uint32_t RtpTimestamp{ 0 };
             std::uint32_t RtpSsrc{ 0x12345678 };
 
+            bool FirstPacketSendTimeInitialized{ false };
+            std::chrono::steady_clock::time_point FirstPacketSendTime;
+            std::uint64_t ScheduledRtpPackets{ 0 };
+
             bool CapsLogged{ false };
         };
 
@@ -121,7 +124,6 @@ namespace aes67::gst
             auto lastLogTime = std::chrono::steady_clock::now();
             std::size_t payloadBytesAccumulated = 0;
             std::size_t packetsAccumulated = 0;
-            auto nextSendTime = std::chrono::steady_clock::now();
 
             while (true)
             {
@@ -204,11 +206,25 @@ namespace aes67::gst
 
                     if (context->SocketFd >= 0)
                     {
-                        auto nowForSend = std::chrono::steady_clock::now();
-                        if (nextSendTime > nowForSend)
+                        if (!context->FirstPacketSendTimeInitialized)
                         {
-                            std::this_thread::sleep_until(nextSendTime);
+                            context->FirstPacketSendTimeInitialized = true;
+                            context->FirstPacketSendTime = std::chrono::steady_clock::now();
                         }
+
+                        auto targetSendTime =
+                            context->FirstPacketSendTime +
+                            std::chrono::milliseconds(
+                                static_cast<long long>(context->ScheduledRtpPackets * safePacketTimeMs));
+
+                        auto nowForSend = std::chrono::steady_clock::now();
+
+                        if (targetSendTime > nowForSend)
+                        {
+                            std::this_thread::sleep_until(targetSendTime);
+                        }
+
+                        ++context->ScheduledRtpPackets;
 
                         const ssize_t sentBytes = sendto(
                             context->SocketFd,
@@ -217,8 +233,6 @@ namespace aes67::gst
                             0,
                             reinterpret_cast<sockaddr*>(&context->DestAddr),
                             sizeof(context->DestAddr));
-
-                        nextSendTime += std::chrono::milliseconds(safePacketTimeMs);
 
                         if (sentBytes < 0)
                         {
@@ -328,6 +342,7 @@ namespace aes67::gst
                 close(context->SocketFd);
                 context->SocketFd = -1;
             }
+
             if (context->DebugRawFile.is_open())
             {
                 context->DebugRawFile.close();
@@ -593,14 +608,6 @@ namespace aes67::gst
             return false;
         }
 
-        g_object_set(
-            aes67Sink,
-            "emit-signals", TRUE,
-            "sync", FALSE,
-            "max-buffers", 1000,
-            "drop", TRUE,
-            NULL);
-
         GstCaps* aes67Caps = gst_caps_new_simple(
             "audio/x-raw",
             "format", G_TYPE_STRING, "S16BE",
@@ -616,7 +623,13 @@ namespace aes67::gst
 
         _captures[sessionId] = captureContext;
 
-        
+        g_object_set(
+            aes67Sink,
+            "emit-signals", TRUE,
+            "sync", FALSE,
+            "max-buffers", 1000,
+            "drop", TRUE,
+            NULL);
 
         g_signal_connect(
             aes67Sink,
