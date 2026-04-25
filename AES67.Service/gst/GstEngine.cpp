@@ -3,6 +3,7 @@
 #include "infra/Logger.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <fstream>
@@ -10,7 +11,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <chrono>
 
 #if defined(__linux__)
 #include <gst/gst.h>
@@ -50,6 +50,10 @@ namespace aes67::gst
 
         void CaptureWorker(SessionCaptureContext* context)
         {
+            auto lastLogTime = std::chrono::steady_clock::now();
+            std::size_t bytesAccumulated = 0;
+            std::size_t buffersAccumulated = 0;
+
             while (true)
             {
                 CapturedAudioBuffer buffer;
@@ -71,25 +75,18 @@ namespace aes67::gst
                     context->Queue.pop_front();
                 }
 
-                static auto lastLogTime = std::chrono::steady_clock::now();
-                static std::size_t bytesAccumulated = 0;
-                static std::size_t buffersAccumulated = 0;
-
                 bytesAccumulated += buffer.Data.size();
-                buffersAccumulated++;
+                ++buffersAccumulated;
 
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime);
 
                 if (elapsed.count() >= 1)
                 {
-                    std::size_t bytesPerSecond = bytesAccumulated;
-                    std::size_t buffersPerSecond = buffersAccumulated;
-
                     std::string msg =
                         "AES67 stream [" + context->SessionId + "] " +
-                        "buffers=" + std::to_string(buffersPerSecond) +
-                        " bytes=" + std::to_string(bytesPerSecond);
+                        "buffers=" + std::to_string(buffersAccumulated) +
+                        " bytes=" + std::to_string(bytesAccumulated);
 
                     aes67::infra::Logger::Info(msg.c_str());
 
@@ -160,8 +157,8 @@ namespace aes67::gst
                 gst_structure_get_int(structure, "rate", &rate);
                 gst_structure_get_int(structure, "channels", &channels);
 
-                std::string msg = "AES67 capture caps for session " +
-                    context->SessionId +
+                std::string msg =
+                    "AES67 capture caps for session " + context->SessionId +
                     ": format=" + std::string(format ? format : "unknown") +
                     " rate=" + std::to_string(rate) +
                     " channels=" + std::to_string(channels);
@@ -449,6 +446,19 @@ namespace aes67::gst
                 NULL);
         }
 
+        if (!gst_element_link_many(audioConvert, audioResample, tee, NULL))
+        {
+            _lastError = "Failed to link audio conversion chain.";
+            aes67::infra::Logger::Error(_lastError.c_str());
+
+            StopCaptureContext(captureContext);
+            _captures.erase(sessionId);
+
+            gst_object_unref(audioBin);
+            gst_object_unref(pipeline);
+            return false;
+        }
+
         if (enableLocalMonitor)
         {
             if (!gst_element_link_many(localQueue, localSink, NULL))
@@ -464,8 +474,6 @@ namespace aes67::gst
                 return false;
             }
         }
-
-        
 
         if (!gst_element_link_many(aes67Queue, aes67Convert, aes67Resample, aes67CapsFilter, aes67Sink, NULL))
         {
@@ -504,9 +512,6 @@ namespace aes67::gst
             gst_object_unref(teeLocalPad);
             gst_object_unref(localQueueSinkPad);
         }
-
-        gst_object_unref(teeLocalPad);
-        gst_object_unref(localQueueSinkPad);
 
         GstPad* teeAes67Pad = gst_element_request_pad_simple(tee, "src_%u");
         GstPad* aes67QueueSinkPad = gst_element_get_static_pad(aes67Queue, "sink");
