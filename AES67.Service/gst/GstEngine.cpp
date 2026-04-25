@@ -103,7 +103,7 @@ namespace aes67::gst
 
             sdpFile
                 << "v=0\n"
-                << "o=- 0 0 IN IP4 127.0.0.1\n"
+                << "o=- 0 0 IN IP4 192.168.0.74\n"
                 << "s=AES67 Service " << sessionId << "\n"
                 << "c=IN IP4 " << multicastIp << "/127\n"
                 << "t=0 0\n"
