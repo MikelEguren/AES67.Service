@@ -21,7 +21,8 @@ namespace aes67::gst
             int packetTimeMs,
             const std::string& destIp,
             int destPort,
-            int multicastTtl);
+            int multicastTtl,
+            bool enableDebugRawCapture);
         bool Stop(const std::string& sessionId);
         const std::string& GetLastError() const;
 

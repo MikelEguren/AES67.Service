@@ -16,6 +16,7 @@ namespace aes67::config
         int BitsPerSample{ 16 };
         bool Mono{ true };
         bool EnableLocalMonitor{ false };
+        bool EnableDebugRawCapture{ false };
         int Aes67PacketTimeMs{ 5 };
         std::string IpcSocketPath{ "/tmp/aes67.sock" };
 

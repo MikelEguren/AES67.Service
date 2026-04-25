@@ -116,7 +116,42 @@ namespace aes67::gst
 
             aes67::infra::Logger::Info(("AES67 SDP file: " + sdpPath).c_str());
         }
+        void SendSapAnnouncement(
+            const std::string& sessionId,
+            const std::string& sdpContent)
+        {
+            int sock = socket(AF_INET, SOCK_DGRAM, 0);
+            if (sock < 0)
+            {
+                aes67::infra::Logger::Error("SAP socket creation failed.");
+                return;
+            }
 
+            sockaddr_in addr{};
+            addr.sin_family = AF_INET;
+            addr.sin_port = htons(9875);
+            inet_pton(AF_INET, "239.255.255.255", &addr.sin_addr);
+
+            std::vector<unsigned char> packet;
+
+            packet.push_back(0x20);
+            packet.push_back(0x00);
+            packet.push_back(0x00);
+            packet.push_back(0x01);
+            packet.insert(packet.end(), { 0, 0, 0, 0 });
+
+            packet.insert(packet.end(), sdpContent.begin(), sdpContent.end());
+
+            sendto(
+                sock,
+                packet.data(),
+                packet.size(),
+                0,
+                reinterpret_cast<sockaddr*>(&addr),
+                sizeof(addr));
+
+            close(sock);
+        }
 
         std::vector<unsigned char> BuildRtpPacket(
             std::uint16_t sequenceNumber,
@@ -160,6 +195,8 @@ namespace aes67::gst
             std::condition_variable Condition;
             std::deque<CapturedAudioBuffer> Queue;
             std::thread Worker;
+            std::thread SapThread;
+            std::atomic<bool> SapStop{ false };
 
             std::atomic<bool> StopRequested{ false };
             std::atomic<unsigned long long> ReceivedBuffers{ 0 };
@@ -376,13 +413,31 @@ namespace aes67::gst
             int packetTimeMs,
             const std::string& ip,
             int port,
-            int multicastTtl)
+            int multicastTtl,
+            bool enableDebugRawCapture)
         {
             SessionCaptureContext* context = new SessionCaptureContext();
             context->SessionId = sessionId;
             context->PacketTimeMs = NormalizePacketTimeMs(packetTimeMs);
             context->RtpSsrc = BuildSsrcFromSessionId(sessionId);
             WriteSdpFile(sessionId, ip, port, context->RtpSsrc);
+
+            std::string sdpPath = "/tmp/aes67_" + sessionId + ".sdp";
+            std::ifstream sdpFile(sdpPath);
+
+            std::string sdpContent(
+                (std::istreambuf_iterator<char>(sdpFile)),
+                std::istreambuf_iterator<char>());
+
+            context->SapThread = std::thread([context, sdpContent]()
+                {
+                    while (!context->SapStop)
+                    {
+                        SendSapAnnouncement(context->SessionId, sdpContent);
+                        std::this_thread::sleep_for(std::chrono::seconds(5));
+                    }
+                });
+
             std::string rtpMessage =
                 "AES67 RTP session " + sessionId +
                 " SSRC=" + std::to_string(context->RtpSsrc) +
@@ -403,16 +458,19 @@ namespace aes67::gst
 
             aes67::infra::Logger::Info(framingMessage.c_str());
 
-            std::string debugPath = "/tmp/aes67_capture_" + sessionId + ".raw";
-            context->DebugRawFile.open(debugPath, std::ios::binary);
+            if (enableDebugRawCapture)
+            {
+                std::string debugPath = "/tmp/aes67_capture_" + sessionId + ".raw";
+                context->DebugRawFile.open(debugPath, std::ios::binary);
 
-            if (context->DebugRawFile.is_open())
-            {
-                aes67::infra::Logger::Info(("AES67 debug RAW file: " + debugPath).c_str());
-            }
-            else
-            {
-                aes67::infra::Logger::Error("Failed to open AES67 debug RAW file.");
+                if (context->DebugRawFile.is_open())
+                {
+                    aes67::infra::Logger::Info(("AES67 debug RAW file: " + debugPath).c_str());
+                }
+                else
+                {
+                    aes67::infra::Logger::Error("Failed to open AES67 debug RAW file.");
+                }
             }
 
             context->SocketFd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -455,7 +513,12 @@ namespace aes67::gst
             {
                 return;
             }
+            context->SapStop = true;
 
+            if (context->SapThread.joinable())
+            {
+                context->SapThread.join();
+            }
             context->StopRequested = true;
             context->Condition.notify_all();
 
@@ -630,7 +693,6 @@ namespace aes67::gst
 
         _initialized = false;
     }
-
     bool GstEngine::PlayFile(
         const std::string& sessionId,
         const std::string& path,
@@ -638,7 +700,8 @@ namespace aes67::gst
         int packetTimeMs,
         const std::string& destIp,
         int destPort,
-        int multicastTtl)
+        int multicastTtl,
+        bool enableDebugRawCapture)
     {
         _lastError.clear();
 
@@ -761,8 +824,7 @@ namespace aes67::gst
         gst_caps_unref(aes67Caps);
 
         SessionCaptureContext* captureContext =
-            CreateCaptureContext(sessionId, packetTimeMs, destIp, destPort, multicastTtl);
-
+            CreateCaptureContext(sessionId, packetTimeMs, destIp, destPort, multicastTtl, enableDebugRawCapture);
         _captures[sessionId] = captureContext;
 
         g_object_set(
