@@ -71,7 +71,21 @@ namespace aes67::gst
 
             return hash;
         }
+        int NormalizePacketTimeMs(int packetTimeMs)
+        {
+            if (packetTimeMs <= 0)
+            {
+                return 5;
+            }
 
+            if ((48000 * packetTimeMs) % 1000 != 0)
+            {
+                aes67::infra::Logger::Error("Invalid packetTimeMs. Falling back to 5 ms.");
+                return 5;
+            }
+
+            return packetTimeMs;
+        }
         void WriteSdpFile(
             const std::string& sessionId,
             const std::string& multicastIp,
@@ -200,11 +214,10 @@ namespace aes67::gst
                     context->Queue.pop_front();
                 }
 
-                const int safePacketTimeMs =
-                    context->PacketTimeMs <= 0 ? 5 : context->PacketTimeMs;
+                const int packetTimeMs = context->PacketTimeMs;
 
                 const std::size_t SamplesPerFrame =
-                    static_cast<std::size_t>(48000 * safePacketTimeMs / 1000);
+                    static_cast<std::size_t>(48000 * packetTimeMs / 1000);
 
                 constexpr std::size_t BytesPerSample = 2;
                 constexpr std::size_t Channels = 1;
@@ -340,7 +353,7 @@ namespace aes67::gst
 
                     std::string msg =
                         "AES67 RTP prepared [" + context->SessionId + "] " +
-                        "packetTimeMs=" + std::to_string(safePacketTimeMs) +
+                        "packetTimeMs=" + std::to_string(packetTimeMs) +
                         " packets=" + std::to_string(packetsAccumulated) +
                         " payloadBytes=" + std::to_string(payloadBytesAccumulated) +
                         " timestampStep=" + std::to_string(SamplesPerFrame) +
@@ -367,15 +380,16 @@ namespace aes67::gst
         {
             SessionCaptureContext* context = new SessionCaptureContext();
             context->SessionId = sessionId;
-            context->PacketTimeMs = packetTimeMs;
+            context->PacketTimeMs = NormalizePacketTimeMs(packetTimeMs);
             context->RtpSsrc = BuildSsrcFromSessionId(sessionId);
             WriteSdpFile(sessionId, ip, port, context->RtpSsrc);
             std::string rtpMessage =
                 "AES67 RTP session " + sessionId +
                 " SSRC=" + std::to_string(context->RtpSsrc) +
-                " packetTimeMs=" + std::to_string(packetTimeMs);
+                " packetTimeMs=" + std::to_string(context->PacketTimeMs);
 
             aes67::infra::Logger::Info(rtpMessage.c_str());
+            aes67::infra::Logger::Info(framingMessage.c_str());
 
             std::string debugPath = "/tmp/aes67_capture_" + sessionId + ".raw";
             context->DebugRawFile.open(debugPath, std::ios::binary);
