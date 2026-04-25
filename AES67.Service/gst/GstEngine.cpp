@@ -109,7 +109,8 @@ namespace aes67::gst
                 << "t=0 0\n"
                 << "m=audio " << port << " RTP/AVP 96\n"
                 << "a=rtpmap:96 L16/48000/1\n"
-                << "a=recvonly\n"
+                << "a=sendonly\n"
+                << "a=ptime:5\n"
                 << "a=ssrc:" << ssrc << " cname:aes67-service-" << sessionId << "\n";
 
             sdpFile.close();
