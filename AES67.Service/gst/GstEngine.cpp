@@ -13,13 +13,13 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 #if defined(__linux__)
+#include <arpa/inet.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsink.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #endif
 
 namespace aes67::gst
@@ -89,6 +89,9 @@ namespace aes67::gst
             std::string SessionId;
             int PacketTimeMs{ 0 };
 
+            int SocketFd{ -1 };
+            sockaddr_in DestAddr{};
+
             std::mutex Mutex;
             std::condition_variable Condition;
             std::deque<CapturedAudioBuffer> Queue;
@@ -99,6 +102,8 @@ namespace aes67::gst
             std::atomic<unsigned long long> DroppedBuffers{ 0 };
             std::atomic<unsigned long long> PreparedRtpPackets{ 0 };
             std::atomic<unsigned long long> PreparedPayloadBytes{ 0 };
+            std::atomic<unsigned long long> SentRtpPackets{ 0 };
+            std::atomic<unsigned long long> SendErrors{ 0 };
 
             std::vector<unsigned char> PendingPcmBytes;
 
@@ -107,8 +112,6 @@ namespace aes67::gst
             std::uint32_t RtpSsrc{ 0x12345678 };
 
             bool CapsLogged{ false };
-            int SocketFd{ -1 };
-            sockaddr_in DestAddr{};
         };
 
         void CaptureWorker(SessionCaptureContext* context)
@@ -189,10 +192,28 @@ namespace aes67::gst
                     ++context->PreparedRtpPackets;
                     context->PreparedPayloadBytes += packet.PayloadBytes;
 
+                    if (context->SocketFd >= 0)
+                    {
+                        const ssize_t sentBytes = sendto(
+                            context->SocketFd,
+                            packet.PacketBytes.data(),
+                            packet.PacketBytes.size(),
+                            0,
+                            reinterpret_cast<sockaddr*>(&context->DestAddr),
+                            sizeof(context->DestAddr));
+
+                        if (sentBytes < 0)
+                        {
+                            ++context->SendErrors;
+                        }
+                        else
+                        {
+                            ++context->SentRtpPackets;
+                        }
+                    }
+
                     ++packetsAccumulated;
                     payloadBytesAccumulated += packet.PayloadBytes;
-
-                    // Future UDP send goes here.
                 }
 
                 auto now = std::chrono::steady_clock::now();
@@ -223,28 +244,23 @@ namespace aes67::gst
             int port)
         {
             SessionCaptureContext* context = new SessionCaptureContext();
-
             context->SessionId = sessionId;
             context->PacketTimeMs = packetTimeMs;
 
-            // Crear socket UDP
             context->SocketFd = socket(AF_INET, SOCK_DGRAM, 0);
-
             if (context->SocketFd < 0)
             {
                 aes67::infra::Logger::Error("Failed to create UDP socket.");
             }
 
-            // Configurar dirección destino
             context->DestAddr.sin_family = AF_INET;
-            context->DestAddr.sin_port = htons(port);
+            context->DestAddr.sin_port = htons(static_cast<std::uint16_t>(port));
 
             if (inet_pton(AF_INET, ip.c_str(), &context->DestAddr.sin_addr) <= 0)
             {
-                aes67::infra::Logger::Error("Invalid destination IP address.");
+                aes67::infra::Logger::Error("Invalid AES67 destination IP address.");
             }
 
-            // Lanzar hilo worker
             context->Worker = std::thread(CaptureWorker, context);
 
             return context;
@@ -271,13 +287,16 @@ namespace aes67::gst
                 " received=" + std::to_string(context->ReceivedBuffers.load()) +
                 " dropped=" + std::to_string(context->DroppedBuffers.load()) +
                 " rtpPackets=" + std::to_string(context->PreparedRtpPackets.load()) +
-                " rtpPayloadBytes=" + std::to_string(context->PreparedPayloadBytes.load());
+                " rtpPayloadBytes=" + std::to_string(context->PreparedPayloadBytes.load()) +
+                " sent=" + std::to_string(context->SentRtpPackets.load()) +
+                " sendErrors=" + std::to_string(context->SendErrors.load());
 
             aes67::infra::Logger::Info(message.c_str());
 
             if (context->SocketFd >= 0)
             {
                 close(context->SocketFd);
+                context->SocketFd = -1;
             }
 
             delete context;
@@ -428,7 +447,9 @@ namespace aes67::gst
         const std::string& sessionId,
         const std::string& path,
         bool enableLocalMonitor,
-        int packetTimeMs)
+        int packetTimeMs,
+        const std::string& destIp,
+        int destPort)
     {
         _lastError.clear();
 
@@ -486,6 +507,10 @@ namespace aes67::gst
         aes67::infra::Logger::Info(enableLocalMonitor
             ? "Local audio monitor enabled."
             : "Local audio monitor disabled.");
+
+        std::string destinationMessage =
+            "AES67 RTP destination: " + destIp + ":" + std::to_string(destPort);
+        aes67::infra::Logger::Info(destinationMessage.c_str());
 
         std::string pipelineName = "player_" + sessionId;
 
@@ -552,7 +577,9 @@ namespace aes67::gst
         g_object_set(aes67CapsFilter, "caps", aes67Caps, NULL);
         gst_caps_unref(aes67Caps);
 
-        SessionCaptureContext* captureContext = CreateCaptureContext(sessionId, packetTimeMs);
+        SessionCaptureContext* captureContext =
+            CreateCaptureContext(sessionId, packetTimeMs, destIp, destPort);
+
         _captures[sessionId] = captureContext;
 
         g_object_set(
