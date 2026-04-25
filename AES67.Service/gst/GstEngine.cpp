@@ -113,7 +113,7 @@ namespace aes67::gst
             std::uint32_t RtpSsrc{ 0x12345678 };
 
             bool FirstPacketSendTimeInitialized{ false };
-            std::chrono::steady_clock::time_point FirstPacketSendTime;
+            std::chrono::steady_clock::time_point FirstSendTime;
             std::uint32_t FirstRtpTimestamp{ 0 };
 
             bool CapsLogged{ false };
