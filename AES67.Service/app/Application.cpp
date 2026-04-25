@@ -179,7 +179,11 @@ namespace aes67::app
             return result;
         }
 
-        if (!_gstEngine.PlayFile(session.SessionId, session.SourcePath, _config.EnableLocalMonitor))
+        if (!_gstEngine.PlayFile(
+            session.SessionId,
+            session.SourcePath,
+            _config.EnableLocalMonitor,
+            _config.Aes67PacketTimeMs))
         {
             _playbackSessionManager.MarkSessionFinished(sessionId);
             _channelManager.ReleaseChannel(session.ChannelNumber);

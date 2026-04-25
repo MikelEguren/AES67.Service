@@ -42,6 +42,8 @@ namespace aes67::gst
         struct SessionCaptureContext
         {
             std::string SessionId;
+			int PacketTimeMs{ 5 }; // Tiempo de paquete AES67 en milisegundos.  esto es un Fallback a 5 ms si no se establece explícitamente en congig.
+
             std::mutex Mutex;
             std::condition_variable Condition;
             std::deque<CapturedAudioBuffer> Queue;
@@ -49,9 +51,7 @@ namespace aes67::gst
             std::atomic<bool> StopRequested{ false };
             std::atomic<unsigned long long> ReceivedBuffers{ 0 };
             std::atomic<unsigned long long> DroppedBuffers{ 0 };
-            std::vector<unsigned char> PendingPcmBytes;
             bool CapsLogged{ false };
-            
         };
 
         void CaptureWorker(SessionCaptureContext* context)
@@ -84,10 +84,17 @@ namespace aes67::gst
                 bytesAccumulated += buffer.Data.size();
                 ++buffersAccumulated;
 
-                constexpr std::size_t SamplesPerFrame = 48;
+                const int safePacketTimeMs =
+                    context->PacketTimeMs <= 0 ? 5 : context->PacketTimeMs;
+
+                const std::size_t SamplesPerFrame =
+                    static_cast<std::size_t>(48000 * safePacketTimeMs / 1000);
+
                 constexpr std::size_t BytesPerSample = 2;
                 constexpr std::size_t Channels = 1;
-                constexpr std::size_t BytesPerFrame = SamplesPerFrame * BytesPerSample * Channels;
+
+                const std::size_t BytesPerFrame =
+                    SamplesPerFrame * BytesPerSample * Channels;
 
                 context->PendingPcmBytes.insert(
                     context->PendingPcmBytes.end(),
@@ -123,7 +130,8 @@ namespace aes67::gst
                 {
                     std::string msg =
                         "AES67 stream [" + context->SessionId + "] " +
-                        "frames=" + std::to_string(buffersAccumulated) +
+                        "packetTimeMs=" + std::to_string(safePacketTimeMs) +
+                        " frames=" + std::to_string(buffersAccumulated) +
                         " bytes=" + std::to_string(bytesAccumulated);
 
                     aes67::infra::Logger::Info(msg.c_str());
@@ -135,10 +143,11 @@ namespace aes67::gst
             }
         }
 
-        SessionCaptureContext* CreateCaptureContext(const std::string& sessionId)
+        SessionCaptureContext* CreateCaptureContext(const std::string& sessionId, int packetTimeMs)
         {
             SessionCaptureContext* context = new SessionCaptureContext();
             context->SessionId = sessionId;
+            context->PacketTimeMs = packetTimeMs;
             context->Worker = std::thread(CaptureWorker, context);
             return context;
         }
@@ -309,7 +318,11 @@ namespace aes67::gst
         _initialized = false;
     }
 
-    bool GstEngine::PlayFile(const std::string& sessionId, const std::string& path, bool enableLocalMonitor)
+    bool GstEngine::PlayFile(
+        const std::string& sessionId,
+        const std::string& path,
+        bool enableLocalMonitor,
+        int packetTimeMs)
     {
         _lastError.clear();
 
@@ -433,7 +446,7 @@ namespace aes67::gst
         g_object_set(aes67CapsFilter, "caps", aes67Caps, NULL);
         gst_caps_unref(aes67Caps);
 
-        SessionCaptureContext* captureContext = CreateCaptureContext(sessionId);
+        SessionCaptureContext* captureContext = CreateCaptureContext(sessionId, packetTimeMs);
         _captures[sessionId] = captureContext;
 
         g_object_set(
