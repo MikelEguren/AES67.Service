@@ -114,7 +114,7 @@ namespace aes67::gst
 
             bool FirstPacketSendTimeInitialized{ false };
             std::chrono::steady_clock::time_point FirstPacketSendTime;
-            std::uint64_t ScheduledRtpPackets{ 0 };
+            std::uint32_t FirstRtpTimestamp{ 0 };
 
             bool CapsLogged{ false };
         };
@@ -209,22 +209,25 @@ namespace aes67::gst
                         if (!context->FirstPacketSendTimeInitialized)
                         {
                             context->FirstPacketSendTimeInitialized = true;
-                            context->FirstPacketSendTime = std::chrono::steady_clock::now();
+                            context->FirstSendTime = std::chrono::steady_clock::now();
+                            context->FirstRtpTimestamp = packet.Timestamp;
                         }
 
-                        auto targetSendTime =
-                            context->FirstPacketSendTime +
-                            std::chrono::milliseconds(
-                                static_cast<long long>(context->ScheduledRtpPackets * safePacketTimeMs));
+                        const std::uint32_t rtpTimestampOffset =
+                            packet.Timestamp - context->FirstRtpTimestamp;
 
-                        auto nowForSend = std::chrono::steady_clock::now();
+                        const auto targetSendTime =
+                            context->FirstSendTime +
+                            std::chrono::nanoseconds(
+                                static_cast<long long>(
+                                    (static_cast<std::uint64_t>(rtpTimestampOffset) * 1000000000ULL) / 48000ULL));
+
+                        const auto nowForSend = std::chrono::steady_clock::now();
 
                         if (targetSendTime > nowForSend)
                         {
                             std::this_thread::sleep_until(targetSendTime);
                         }
-
-                        ++context->ScheduledRtpPackets;
 
                         const ssize_t sentBytes = sendto(
                             context->SocketFd,
