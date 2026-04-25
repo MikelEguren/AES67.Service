@@ -389,6 +389,18 @@ namespace aes67::gst
                 " packetTimeMs=" + std::to_string(context->PacketTimeMs);
 
             aes67::infra::Logger::Info(rtpMessage.c_str());
+
+            const std::size_t samplesPerFrame =
+                static_cast<std::size_t>(48000 * context->PacketTimeMs / 1000);
+
+            const std::size_t bytesPerFrame =
+                samplesPerFrame * 2;
+
+            std::string framingMessage =
+                "AES67 framing " + sessionId +
+                " samplesPerFrame=" + std::to_string(samplesPerFrame) +
+                " bytesPerFrame=" + std::to_string(bytesPerFrame);
+
             aes67::infra::Logger::Info(framingMessage.c_str());
 
             std::string debugPath = "/tmp/aes67_capture_" + sessionId + ".raw";
