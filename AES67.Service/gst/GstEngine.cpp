@@ -13,7 +13,7 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <fstream>
+
 
 #if defined(__linux__)
 #include <arpa/inet.h>
@@ -616,13 +616,7 @@ namespace aes67::gst
 
         _captures[sessionId] = captureContext;
 
-        g_object_set(
-            aes67Sink,
-            "emit-signals", TRUE,
-            "sync", FALSE,
-            "max-buffers", 20,
-            "drop", TRUE,
-            NULL);
+        
 
         g_signal_connect(
             aes67Sink,
