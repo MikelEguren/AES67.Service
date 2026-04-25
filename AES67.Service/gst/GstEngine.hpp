@@ -14,7 +14,7 @@ namespace aes67::gst
         bool Initialize();
         void Shutdown();
 
-        bool PlayFile(const std::string& sessionId, const std::string& path);
+        bool PlayFile(const std::string& sessionId, const std::string& path, bool enableLocalMonitor);
         bool Stop(const std::string& sessionId);
         const std::string& GetLastError() const;
 

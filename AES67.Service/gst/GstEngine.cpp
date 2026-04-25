@@ -10,6 +10,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <chrono>
 
 #if defined(__linux__)
 #include <gst/gst.h>
@@ -70,7 +71,32 @@ namespace aes67::gst
                     context->Queue.pop_front();
                 }
 
-                // Future AES67/RTP packetization goes here.
+                static auto lastLogTime = std::chrono::steady_clock::now();
+                static std::size_t bytesAccumulated = 0;
+                static std::size_t buffersAccumulated = 0;
+
+                bytesAccumulated += buffer.Data.size();
+                buffersAccumulated++;
+
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime);
+
+                if (elapsed.count() >= 1)
+                {
+                    std::size_t bytesPerSecond = bytesAccumulated;
+                    std::size_t buffersPerSecond = buffersAccumulated;
+
+                    std::string msg =
+                        "AES67 stream [" + context->SessionId + "] " +
+                        "buffers=" + std::to_string(buffersPerSecond) +
+                        " bytes=" + std::to_string(bytesPerSecond);
+
+                    aes67::infra::Logger::Info(msg.c_str());
+
+                    bytesAccumulated = 0;
+                    buffersAccumulated = 0;
+                    lastLogTime = now;
+                }
             }
         }
 
@@ -248,7 +274,7 @@ namespace aes67::gst
         _initialized = false;
     }
 
-    bool GstEngine::PlayFile(const std::string& sessionId, const std::string& path)
+    bool GstEngine::PlayFile(const std::string& sessionId, const std::string& path, bool enableLocalMonitor)
     {
         _lastError.clear();
 
@@ -303,6 +329,9 @@ namespace aes67::gst
 
         std::string uri = "file://" + path;
         aes67::infra::Logger::Info(("Playback URI: " + uri).c_str());
+        aes67::infra::Logger::Info(enableLocalMonitor
+            ? "Local audio monitor enabled."
+            : "Local audio monitor disabled.");
 
         std::string pipelineName = "player_" + sessionId;
 
@@ -320,8 +349,8 @@ namespace aes67::gst
         GstElement* audioResample = gst_element_factory_make("audioresample", nullptr);
         GstElement* tee = gst_element_factory_make("tee", nullptr);
 
-        GstElement* localQueue = gst_element_factory_make("queue", nullptr);
-        GstElement* localSink = gst_element_factory_make("autoaudiosink", nullptr);
+        GstElement* localQueue = enableLocalMonitor ? gst_element_factory_make("queue", nullptr) : nullptr;
+        GstElement* localSink = enableLocalMonitor ? gst_element_factory_make("autoaudiosink", nullptr) : nullptr;
 
         GstElement* aes67Queue = gst_element_factory_make("queue", nullptr);
         GstElement* aes67Convert = gst_element_factory_make("audioconvert", nullptr);
@@ -330,7 +359,7 @@ namespace aes67::gst
         GstElement* aes67Sink = gst_element_factory_make("appsink", nullptr);
 
         if (!audioConvert || !audioResample || !tee ||
-            !localQueue || !localSink ||
+            (enableLocalMonitor && (!localQueue || !localSink)) ||
             !aes67Queue || !aes67Convert || !aes67Resample || !aes67CapsFilter || !aes67Sink)
         {
             _lastError = "Failed to create tee audio output elements.";
@@ -404,8 +433,6 @@ namespace aes67::gst
             audioConvert,
             audioResample,
             tee,
-            localQueue,
-            localSink,
             aes67Queue,
             aes67Convert,
             aes67Resample,
@@ -413,17 +440,29 @@ namespace aes67::gst
             aes67Sink,
             NULL);
 
-        if (!gst_element_link_many(audioConvert, audioResample, tee, NULL))
+        if (enableLocalMonitor)
         {
-            _lastError = "Failed to link audio conversion chain.";
-            aes67::infra::Logger::Error(_lastError.c_str());
+            gst_bin_add_many(
+                GST_BIN(audioBin),
+                localQueue,
+                localSink,
+                NULL);
+        }
 
-            StopCaptureContext(captureContext);
-            _captures.erase(sessionId);
+        if (enableLocalMonitor)
+        {
+            if (!gst_element_link_many(localQueue, localSink, NULL))
+            {
+                _lastError = "Failed to link local audio branch.";
+                aes67::infra::Logger::Error(_lastError.c_str());
 
-            gst_object_unref(audioBin);
-            gst_object_unref(pipeline);
-            return false;
+                StopCaptureContext(captureContext);
+                _captures.erase(sessionId);
+
+                gst_object_unref(audioBin);
+                gst_object_unref(pipeline);
+                return false;
+            }
         }
 
         if (!gst_element_link_many(localQueue, localSink, NULL))
