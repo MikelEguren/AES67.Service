@@ -18,5 +18,8 @@ namespace aes67::config
         bool EnableLocalMonitor{ false };
         int Aes67PacketTimeMs{ 5 };
         std::string IpcSocketPath{ "/tmp/aes67.sock" };
+
+        std::string Aes67DestinationIp{ "127.0.0.1" };
+        int Aes67DestinationPort{ 5004 };
     };
 }

@@ -2,6 +2,7 @@
 
 #include "infra/Logger.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -12,6 +13,9 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #if defined(__linux__)
 #include <gst/gst.h>
@@ -47,7 +51,38 @@ namespace aes67::gst
             std::uint32_t Timestamp{ 0 };
             std::uint32_t Ssrc{ 0 };
             std::size_t PayloadBytes{ 0 };
+            std::vector<unsigned char> PacketBytes;
         };
+
+        std::vector<unsigned char> BuildRtpPacket(
+            std::uint16_t sequenceNumber,
+            std::uint32_t timestamp,
+            std::uint32_t ssrc,
+            const std::vector<unsigned char>& payload)
+        {
+            std::vector<unsigned char> packet;
+            packet.resize(12 + payload.size());
+
+            packet[0] = 0x80;
+            packet[1] = 96;
+
+            packet[2] = static_cast<unsigned char>((sequenceNumber >> 8) & 0xFF);
+            packet[3] = static_cast<unsigned char>(sequenceNumber & 0xFF);
+
+            packet[4] = static_cast<unsigned char>((timestamp >> 24) & 0xFF);
+            packet[5] = static_cast<unsigned char>((timestamp >> 16) & 0xFF);
+            packet[6] = static_cast<unsigned char>((timestamp >> 8) & 0xFF);
+            packet[7] = static_cast<unsigned char>(timestamp & 0xFF);
+
+            packet[8] = static_cast<unsigned char>((ssrc >> 24) & 0xFF);
+            packet[9] = static_cast<unsigned char>((ssrc >> 16) & 0xFF);
+            packet[10] = static_cast<unsigned char>((ssrc >> 8) & 0xFF);
+            packet[11] = static_cast<unsigned char>(ssrc & 0xFF);
+
+            std::copy(payload.begin(), payload.end(), packet.begin() + 12);
+
+            return packet;
+        }
 
         struct SessionCaptureContext
         {
@@ -72,6 +107,8 @@ namespace aes67::gst
             std::uint32_t RtpSsrc{ 0x12345678 };
 
             bool CapsLogged{ false };
+            int SocketFd{ -1 };
+            sockaddr_in DestAddr{};
         };
 
         void CaptureWorker(SessionCaptureContext* context)
@@ -136,6 +173,17 @@ namespace aes67::gst
                     packet.Ssrc = context->RtpSsrc;
                     packet.PayloadBytes = frame.Data.size();
 
+                    packet.PacketBytes = BuildRtpPacket(
+                        packet.SequenceNumber,
+                        packet.Timestamp,
+                        packet.Ssrc,
+                        frame.Data);
+
+                    if (packet.PacketBytes.size() != 12 + packet.PayloadBytes)
+                    {
+                        aes67::infra::Logger::Error("Invalid RTP packet size.");
+                    }
+
                     context->RtpTimestamp += static_cast<std::uint32_t>(SamplesPerFrame);
 
                     ++context->PreparedRtpPackets;
@@ -144,7 +192,7 @@ namespace aes67::gst
                     ++packetsAccumulated;
                     payloadBytesAccumulated += packet.PayloadBytes;
 
-                    // Future UDP/RTP send goes here.
+                    // Future UDP send goes here.
                 }
 
                 auto now = std::chrono::steady_clock::now();
@@ -168,12 +216,37 @@ namespace aes67::gst
             }
         }
 
-        SessionCaptureContext* CreateCaptureContext(const std::string& sessionId, int packetTimeMs)
+        SessionCaptureContext* CreateCaptureContext(
+            const std::string& sessionId,
+            int packetTimeMs,
+            const std::string& ip,
+            int port)
         {
             SessionCaptureContext* context = new SessionCaptureContext();
+
             context->SessionId = sessionId;
             context->PacketTimeMs = packetTimeMs;
+
+            // Crear socket UDP
+            context->SocketFd = socket(AF_INET, SOCK_DGRAM, 0);
+
+            if (context->SocketFd < 0)
+            {
+                aes67::infra::Logger::Error("Failed to create UDP socket.");
+            }
+
+            // Configurar dirección destino
+            context->DestAddr.sin_family = AF_INET;
+            context->DestAddr.sin_port = htons(port);
+
+            if (inet_pton(AF_INET, ip.c_str(), &context->DestAddr.sin_addr) <= 0)
+            {
+                aes67::infra::Logger::Error("Invalid destination IP address.");
+            }
+
+            // Lanzar hilo worker
             context->Worker = std::thread(CaptureWorker, context);
+
             return context;
         }
 
@@ -201,6 +274,11 @@ namespace aes67::gst
                 " rtpPayloadBytes=" + std::to_string(context->PreparedPayloadBytes.load());
 
             aes67::infra::Logger::Info(message.c_str());
+
+            if (context->SocketFd >= 0)
+            {
+                close(context->SocketFd);
+            }
 
             delete context;
         }

@@ -183,7 +183,9 @@ namespace aes67::app
             session.SessionId,
             session.SourcePath,
             _config.EnableLocalMonitor,
-            _config.Aes67PacketTimeMs))
+            _config.Aes67PacketTimeMs,
+            _config.Aes67DestinationIp,
+            _config.Aes67DestinationPort))
         {
             _playbackSessionManager.MarkSessionFinished(sessionId);
             _channelManager.ReleaseChannel(session.ChannelNumber);
