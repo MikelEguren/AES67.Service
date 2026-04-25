@@ -560,16 +560,16 @@ namespace aes67::gst
         }
 
         g_object_set(
-            aes67Queue,
-            "max-size-buffers", 50,
-            "max-size-time", 0,
-            "max-size-bytes", 0,
-            "leaky", 2,
+            aes67Sink,
+            "emit-signals", TRUE,
+            "sync", TRUE,
+            "max-buffers", 50,
+            "drop", TRUE,
             NULL);
 
         GstCaps* aes67Caps = gst_caps_new_simple(
             "audio/x-raw",
-            "format", G_TYPE_STRING, "S16LE",
+            "format", G_TYPE_STRING, "S16BE",
             "rate", G_TYPE_INT, 48000,
             "channels", G_TYPE_INT, 1,
             NULL);
