@@ -34,6 +34,10 @@ namespace aes67::gst
             GstClockTime Pts{ GST_CLOCK_TIME_NONE };
             GstClockTime Duration{ GST_CLOCK_TIME_NONE };
         };
+        struct Aes67PcmFrame
+        {
+            std::vector<unsigned char> Data;
+        };
 
         struct SessionCaptureContext
         {
@@ -45,7 +49,9 @@ namespace aes67::gst
             std::atomic<bool> StopRequested{ false };
             std::atomic<unsigned long long> ReceivedBuffers{ 0 };
             std::atomic<unsigned long long> DroppedBuffers{ 0 };
+            std::vector<unsigned char> PendingPcmBytes;
             bool CapsLogged{ false };
+            
         };
 
         void CaptureWorker(SessionCaptureContext* context)
@@ -78,6 +84,38 @@ namespace aes67::gst
                 bytesAccumulated += buffer.Data.size();
                 ++buffersAccumulated;
 
+                constexpr std::size_t SamplesPerFrame = 48;
+                constexpr std::size_t BytesPerSample = 2;
+                constexpr std::size_t Channels = 1;
+                constexpr std::size_t BytesPerFrame = SamplesPerFrame * BytesPerSample * Channels;
+
+                context->PendingPcmBytes.insert(
+                    context->PendingPcmBytes.end(),
+                    buffer.Data.begin(),
+                    buffer.Data.end());
+
+                std::size_t framesBuilt = 0;
+
+                while (context->PendingPcmBytes.size() >= BytesPerFrame)
+                {
+                    Aes67PcmFrame frame;
+                    frame.Data.insert(
+                        frame.Data.end(),
+                        context->PendingPcmBytes.begin(),
+                        context->PendingPcmBytes.begin() + BytesPerFrame);
+
+                    context->PendingPcmBytes.erase(
+                        context->PendingPcmBytes.begin(),
+                        context->PendingPcmBytes.begin() + BytesPerFrame);
+
+                    ++framesBuilt;
+
+                    // Aquí irá RTP: cada frame equivale a 1 ms de audio PCM L16 48k mono.
+                }
+
+                bytesAccumulated += buffer.Data.size();
+                buffersAccumulated += framesBuilt;
+
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime);
 
@@ -85,7 +123,7 @@ namespace aes67::gst
                 {
                     std::string msg =
                         "AES67 stream [" + context->SessionId + "] " +
-                        "buffers=" + std::to_string(buffersAccumulated) +
+                        "frames=" + std::to_string(buffersAccumulated) +
                         " bytes=" + std::to_string(bytesAccumulated);
 
                     aes67::infra::Logger::Info(msg.c_str());
