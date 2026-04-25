@@ -11,7 +11,7 @@ namespace aes67::config
         ExecutionMode Mode{ ExecutionMode::ServiceLoop };
         //ExecutionMode Mode{ ExecutionMode::RunOnce };
         int ChannelCount{ 4 };
-        int ServiceLoopIterationCount{ 3 };
+        int ServiceLoopIterationCount{ 30 };
         int SampleRate{ 48000 };
         int BitsPerSample{ 16 };
         bool Mono{ true };
