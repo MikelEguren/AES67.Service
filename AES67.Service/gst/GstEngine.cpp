@@ -72,6 +72,38 @@ namespace aes67::gst
             return hash;
         }
 
+        void WriteSdpFile(
+            const std::string& sessionId,
+            const std::string& multicastIp,
+            int port,
+            std::uint32_t ssrc)
+        {
+            std::string sdpPath = "/tmp/aes67_" + sessionId + ".sdp";
+
+            std::ofstream sdpFile(sdpPath);
+            if (!sdpFile.is_open())
+            {
+                aes67::infra::Logger::Error("Failed to create SDP file.");
+                return;
+            }
+
+            sdpFile
+                << "v=0\n"
+                << "o=- 0 0 IN IP4 127.0.0.1\n"
+                << "s=AES67 Service " << sessionId << "\n"
+                << "c=IN IP4 " << multicastIp << "/32\n"
+                << "t=0 0\n"
+                << "m=audio " << port << " RTP/AVP 96\n"
+                << "a=rtpmap:96 L16/48000/1\n"
+                << "a=recvonly\n"
+                << "a=ssrc:" << ssrc << " cname:aes67-service-" << sessionId << "\n";
+
+            sdpFile.close();
+
+            aes67::infra::Logger::Info(("AES67 SDP file: " + sdpPath).c_str());
+        }
+
+
         std::vector<unsigned char> BuildRtpPacket(
             std::uint16_t sequenceNumber,
             std::uint32_t timestamp,
@@ -301,7 +333,7 @@ namespace aes67::gst
             context->SessionId = sessionId;
             context->PacketTimeMs = packetTimeMs;
             context->RtpSsrc = BuildSsrcFromSessionId(sessionId);
-
+            WriteSdpFile(sessionId, ip, port, context->RtpSsrc);
             std::string rtpMessage =
                 "AES67 RTP session " + sessionId +
                 " SSRC=" + std::to_string(context->RtpSsrc) +
