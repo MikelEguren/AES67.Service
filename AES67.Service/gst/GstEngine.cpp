@@ -111,6 +111,7 @@ namespace aes67::gst
                 << "a=rtpmap:96 L16/48000/1\n"
                 << "a=sendonly\n"
                 << "a=ptime:5\n"
+                << "a=source-filter: incl IN IP4 " << multicastIp << " 192.168.0.74\n"
                 << "a=ts-refclk:ptp=IEEE1588-2008:00-00-00-00-00-00-00-00:0\n"
                 << "a=mediaclk:direct=0\n"
                 << "a=ssrc:" << ssrc << " cname:aes67-service-" << sessionId << "\n";
