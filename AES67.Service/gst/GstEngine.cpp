@@ -465,18 +465,7 @@ namespace aes67::gst
             }
         }
 
-        if (!gst_element_link_many(localQueue, localSink, NULL))
-        {
-            _lastError = "Failed to link local audio branch.";
-            aes67::infra::Logger::Error(_lastError.c_str());
-
-            StopCaptureContext(captureContext);
-            _captures.erase(sessionId);
-
-            gst_object_unref(audioBin);
-            gst_object_unref(pipeline);
-            return false;
-        }
+        
 
         if (!gst_element_link_many(aes67Queue, aes67Convert, aes67Resample, aes67CapsFilter, aes67Sink, NULL))
         {
