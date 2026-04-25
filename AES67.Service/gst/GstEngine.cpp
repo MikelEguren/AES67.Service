@@ -64,7 +64,7 @@ namespace aes67::gst
             packet.resize(12 + payload.size());
 
             packet[0] = 0x80;
-            packet[1] = 96;
+            packet[1] = 10;
 
             packet[2] = static_cast<unsigned char>((sequenceNumber >> 8) & 0xFF);
             packet[3] = static_cast<unsigned char>(sequenceNumber & 0xFF);
@@ -571,7 +571,7 @@ namespace aes67::gst
         g_object_set(
             aes67Sink,
             "emit-signals", TRUE,
-            "sync", TRUE,
+            "sync", FALSE,
             "max-buffers", 1000,
             "drop", TRUE,
             NULL);
