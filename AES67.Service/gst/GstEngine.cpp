@@ -166,6 +166,10 @@ namespace aes67::gst
             std::chrono::steady_clock::time_point FirstSendTime;
             std::uint32_t FirstRtpTimestamp{ 0 };
 
+            std::chrono::steady_clock::time_point FirstActualSendTime;
+            bool FirstActualSendTimeInitialized{ false };
+            long long DriftCorrectionNs{ 0 };
+
             bool CapsLogged{ false };
         };
 
@@ -266,11 +270,13 @@ namespace aes67::gst
                         const std::uint32_t rtpTimestampOffset =
                             packet.Timestamp - context->FirstRtpTimestamp;
 
+                        const long long scheduledNs =
+                            static_cast<long long>(
+                                (static_cast<std::uint64_t>(rtpTimestampOffset) * 1000000000ULL) / 48000ULL);
+
                         const auto targetSendTime =
                             context->FirstSendTime +
-                            std::chrono::nanoseconds(
-                                static_cast<long long>(
-                                    (static_cast<std::uint64_t>(rtpTimestampOffset) * 1000000000ULL) / 48000ULL));
+                            std::chrono::nanoseconds(scheduledNs - context->DriftCorrectionNs);
 
                         const auto nowForSend = std::chrono::steady_clock::now();
 
@@ -293,6 +299,12 @@ namespace aes67::gst
                         }
                         else
                         {
+                            if (!context->FirstActualSendTimeInitialized)
+                            {
+                                context->FirstActualSendTimeInitialized = true;
+                                context->FirstActualSendTime = std::chrono::steady_clock::now();
+                            }
+
                             ++context->SentRtpPackets;
                         }
                     }
@@ -304,14 +316,38 @@ namespace aes67::gst
                 auto now = std::chrono::steady_clock::now();
                 auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - lastLogTime);
 
-                if (elapsed.count() >= 1)
+                iif(elapsed.count() >= 1)
                 {
+                    long long scheduledMs = 0;
+                    long long actualMs = 0;
+                    long long driftMs = 0;
+
+                    if (context->FirstPacketSendTimeInitialized && context->FirstActualSendTimeInitialized)
+                    {
+                        scheduledMs = static_cast<long long>(
+                            (static_cast<std::uint64_t>(context->RtpTimestamp - context->FirstRtpTimestamp) * 1000ULL) / 48000ULL);
+
+                        actualMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now() - context->FirstActualSendTime).count();
+
+                        driftMs = actualMs - scheduledMs;
+
+                        if (driftMs > 2 || driftMs < -2)
+                        {
+                            context->DriftCorrectionNs += (driftMs * 1000000LL) / 10;
+                        }
+                    }
+
                     std::string msg =
                         "AES67 RTP prepared [" + context->SessionId + "] " +
                         "packetTimeMs=" + std::to_string(safePacketTimeMs) +
                         " packets=" + std::to_string(packetsAccumulated) +
                         " payloadBytes=" + std::to_string(payloadBytesAccumulated) +
-                        " timestampStep=" + std::to_string(SamplesPerFrame);
+                        " timestampStep=" + std::to_string(SamplesPerFrame) +
+                        " scheduledMs=" + std::to_string(scheduledMs) +
+                        " actualMs=" + std::to_string(actualMs) +
+                        " driftMs=" + std::to_string(driftMs) +
+                        " correctionNs=" + std::to_string(context->DriftCorrectionNs);
 
                     aes67::infra::Logger::Info(msg.c_str());
 
