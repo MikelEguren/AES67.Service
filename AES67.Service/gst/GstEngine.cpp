@@ -107,7 +107,7 @@ namespace aes67::gst
                 << "s=AES67 Service " << sessionId << "\n"
                 << "c=IN IP4 " << multicastIp << "/127\n"
                 << "t=0 0\n"
-                << "m=audio 5004 RTP/AVP 10"  << port << " RTP/AVP 96\n"
+                << "m=audio " << port << " RTP/AVP 10\n"
                 << "a=rtpmap:10 L16/48000/2\n"
                 << "a=sendonly\n"
                 << "a=ptime:5\n"
