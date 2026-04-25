@@ -54,6 +54,24 @@ namespace aes67::gst
             std::vector<unsigned char> PacketBytes;
         };
 
+        std::uint32_t BuildSsrcFromSessionId(const std::string& sessionId)
+        {
+            std::uint32_t hash = 2166136261u;
+
+            for (char c : sessionId)
+            {
+                hash ^= static_cast<std::uint8_t>(c);
+                hash *= 16777619u;
+            }
+
+            if (hash == 0)
+            {
+                hash = 0x12345678;
+            }
+
+            return hash;
+        }
+
         std::vector<unsigned char> BuildRtpPacket(
             std::uint16_t sequenceNumber,
             std::uint32_t timestamp,
@@ -108,9 +126,9 @@ namespace aes67::gst
             std::vector<unsigned char> PendingPcmBytes;
             std::ofstream DebugRawFile;
 
-            std::uint16_t RtpSequenceNumber{ 0 };
+            std::uint16_t RtpSequenceNumber{ 1 };
             std::uint32_t RtpTimestamp{ 0 };
-            std::uint32_t RtpSsrc{ 0x12345678 };
+            std::uint32_t RtpSsrc{ 0 };
 
             bool FirstPacketSendTimeInitialized{ false };
             std::chrono::steady_clock::time_point FirstSendTime;
@@ -276,11 +294,20 @@ namespace aes67::gst
             const std::string& sessionId,
             int packetTimeMs,
             const std::string& ip,
-            int port)
+            int port,
+            int multicastTtl)
         {
             SessionCaptureContext* context = new SessionCaptureContext();
             context->SessionId = sessionId;
             context->PacketTimeMs = packetTimeMs;
+            context->RtpSsrc = BuildSsrcFromSessionId(sessionId);
+
+            std::string rtpMessage =
+                "AES67 RTP session " + sessionId +
+                " SSRC=" + std::to_string(context->RtpSsrc) +
+                " packetTimeMs=" + std::to_string(packetTimeMs);
+
+            aes67::infra::Logger::Info(rtpMessage.c_str());
 
             std::string debugPath = "/tmp/aes67_capture_" + sessionId + ".raw";
             context->DebugRawFile.open(debugPath, std::ios::binary);
@@ -298,6 +325,21 @@ namespace aes67::gst
             if (context->SocketFd < 0)
             {
                 aes67::infra::Logger::Error("Failed to create UDP socket.");
+            }
+
+            if (context->SocketFd >= 0)
+            {
+                unsigned char ttl = static_cast<unsigned char>(multicastTtl);
+
+                if (setsockopt(
+                    context->SocketFd,
+                    IPPROTO_IP,
+                    IP_MULTICAST_TTL,
+                    &ttl,
+                    sizeof(ttl)) < 0)
+                {
+                    aes67::infra::Logger::Error("Failed to set multicast TTL.");
+                }
             }
 
             context->DestAddr.sin_family = AF_INET;
@@ -501,7 +543,8 @@ namespace aes67::gst
         bool enableLocalMonitor,
         int packetTimeMs,
         const std::string& destIp,
-        int destPort)
+        int destPort,
+        int multicastTtl)
     {
         _lastError.clear();
 
@@ -561,7 +604,9 @@ namespace aes67::gst
             : "Local audio monitor disabled.");
 
         std::string destinationMessage =
-            "AES67 RTP destination: " + destIp + ":" + std::to_string(destPort);
+            "AES67 RTP destination: " + destIp + ":" + std::to_string(destPort) +
+            " ttl=" + std::to_string(multicastTtl);
+
         aes67::infra::Logger::Info(destinationMessage.c_str());
 
         std::string pipelineName = "player_" + sessionId;
@@ -622,7 +667,7 @@ namespace aes67::gst
         gst_caps_unref(aes67Caps);
 
         SessionCaptureContext* captureContext =
-            CreateCaptureContext(sessionId, packetTimeMs, destIp, destPort);
+            CreateCaptureContext(sessionId, packetTimeMs, destIp, destPort, multicastTtl);
 
         _captures[sessionId] = captureContext;
 

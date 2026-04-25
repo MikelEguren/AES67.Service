@@ -20,7 +20,8 @@ namespace aes67::gst
             bool enableLocalMonitor,
             int packetTimeMs,
             const std::string& destIp,
-            int destPort);
+            int destPort,
+            int multicastTtl);
         bool Stop(const std::string& sessionId);
         const std::string& GetLastError() const;
 

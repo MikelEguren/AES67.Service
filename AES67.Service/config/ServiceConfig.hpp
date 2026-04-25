@@ -19,7 +19,8 @@ namespace aes67::config
         int Aes67PacketTimeMs{ 5 };
         std::string IpcSocketPath{ "/tmp/aes67.sock" };
 
-        std::string Aes67DestinationIp{ "127.0.0.1" };
+        std::string Aes67DestinationIp{ "239.69.1.1" };
         int Aes67DestinationPort{ 5004 };
+        int Aes67MulticastTtl{ 16 };
     };
 }

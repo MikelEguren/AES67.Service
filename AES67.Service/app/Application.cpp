@@ -180,12 +180,13 @@ namespace aes67::app
         }
 
         if (!_gstEngine.PlayFile(
-            session.SessionId,
-            session.SourcePath,
-            _config.EnableLocalMonitor,
-            _config.Aes67PacketTimeMs,
-            _config.Aes67DestinationIp,
-            _config.Aes67DestinationPort))
+    session.SessionId,
+    session.SourcePath,
+    _config.EnableLocalMonitor,
+    _config.Aes67PacketTimeMs,
+    _config.Aes67DestinationIp,
+    _config.Aes67DestinationPort,
+    _config.Aes67MulticastTtl))
         {
             _playbackSessionManager.MarkSessionFinished(sessionId);
             _channelManager.ReleaseChannel(session.ChannelNumber);
