@@ -119,6 +119,7 @@ namespace aes67::gst
             auto lastLogTime = std::chrono::steady_clock::now();
             std::size_t payloadBytesAccumulated = 0;
             std::size_t packetsAccumulated = 0;
+            auto nextSendTime = std::chrono::steady_clock::now();
 
             while (true)
             {
@@ -194,6 +195,12 @@ namespace aes67::gst
 
                     if (context->SocketFd >= 0)
                     {
+                        auto nowForSend = std::chrono::steady_clock::now();
+                        if (nextSendTime > nowForSend)
+                        {
+                            std::this_thread::sleep_until(nextSendTime);
+                        }
+
                         const ssize_t sentBytes = sendto(
                             context->SocketFd,
                             packet.PacketBytes.data(),
@@ -201,6 +208,8 @@ namespace aes67::gst
                             0,
                             reinterpret_cast<sockaddr*>(&context->DestAddr),
                             sizeof(context->DestAddr));
+
+                        nextSendTime += std::chrono::milliseconds(safePacketTimeMs);
 
                         if (sentBytes < 0)
                         {
